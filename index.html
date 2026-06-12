@@ -63,9 +63,16 @@
     .brand strong { display: block; font-size: 22px; }
     .brand span { color: var(--muted); font-size: 14px; }
 
+    .top-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
     .nav {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 8px;
     }
 
@@ -179,6 +186,39 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       margin-bottom: 12px;
+    }
+
+    .favorite-grid, .chart-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .chart-row {
+      display: grid;
+      gap: 6px;
+    }
+
+    .chart-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .chart-track {
+      width: 100%;
+      height: 18px;
+      background: #edf1ed;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .chart-bar {
+      min-width: 4px;
+      height: 100%;
+      background: var(--primary);
+      border-radius: 999px;
     }
 
     .option-card {
@@ -355,7 +395,7 @@
     }
 
     @media (min-width: 1020px) {
-      .home-actions { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .home-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
       .quick-button { min-height: 132px; align-items: flex-start; flex-direction: column; }
     }
   </style>
@@ -369,12 +409,14 @@
             <strong>전자 입고확인서</strong>
             <span id="todayLabel">문자 · 단가 · 입고 내역 · 현황 · 송금 프로토타입</span>
           </div>
-          <button class="ghost-button" type="button" onclick="resetSample()">샘플 초기화</button>
+          <div class="top-actions">
+            <button class="ghost-button" type="button" onclick="showScreen('price')">단가 관리</button>
+            <button class="ghost-button" type="button" onclick="resetSample()">샘플 초기화</button>
+          </div>
         </div>
         <nav class="nav" aria-label="주요 화면">
           <button type="button" data-nav="home" class="active" onclick="showScreen('home')">홈</button>
-          <button type="button" data-nav="send" onclick="showScreen('send')">문자</button>
-          <button type="button" data-nav="price" onclick="showScreen('price')">단가 관리</button>
+          <button type="button" data-nav="send" onclick="startNew()">문자</button>
           <button type="button" data-nav="today" onclick="showScreen('today')">입고 확인 내역</button>
           <button type="button" data-nav="settlement" onclick="showScreen('settlement')">일자별 현황</button>
           <button type="button" data-nav="payment" onclick="showScreen('payment')">송금</button>
@@ -409,6 +451,7 @@
     ];
 
     let priceRules = loadPriceRules();
+    let priceDraft = freshPriceDraft();
     let db = loadDb();
     let currentScreen = "home";
     let draft = freshDraft();
@@ -467,13 +510,49 @@
       return digits.slice(-4);
     }
 
-    function normalizePriceRules(raw = {}) {
-      return GRADES.reduce((rules, grade) => {
+    function emptyGradePrices() {
+      return GRADES.reduce((prices, grade) => ({ ...prices, [grade]: null }), {});
+    }
+
+    function normalizeGradePrices(raw = {}) {
+      return GRADES.reduce((prices, grade) => {
         const value = raw?.[grade];
         const numberValue = value === "" || value === null || value === undefined ? null : Number(value);
-        rules[grade] = Number.isFinite(numberValue) && numberValue > 0 ? Math.round(numberValue) : null;
-        return rules;
+        prices[grade] = Number.isFinite(numberValue) && numberValue > 0 ? Math.round(numberValue) : null;
+        return prices;
       }, {});
+    }
+
+    function hasAnyGradePrice(prices) {
+      return GRADES.some((grade) => Number.isFinite(Number(prices?.[grade])) && Number(prices[grade]) > 0);
+    }
+
+    function normalizePriceRules(raw = {}) {
+      const result = { items: [], legacyGradePrices: emptyGradePrices() };
+      const seen = new Set();
+      const addItem = (itemName, gradePrices) => {
+        const name = String(itemName || "").trim();
+        if (!name || seen.has(name)) return;
+        seen.add(name);
+        result.items.push({ itemName: name, gradePrices: normalizeGradePrices(gradePrices) });
+      };
+
+      if (Array.isArray(raw)) {
+        raw.forEach((row) => addItem(row?.itemName || row?.fruitName, row?.gradePrices || row));
+      } else if (Array.isArray(raw?.items)) {
+        raw.items.forEach((row) => addItem(row?.itemName || row?.fruitName, row?.gradePrices || row));
+        result.legacyGradePrices = normalizeGradePrices(raw.legacyGradePrices || {});
+      } else if (raw && typeof raw === "object") {
+        const isLegacyGradeOnly = GRADES.some((grade) => Object.prototype.hasOwnProperty.call(raw, grade));
+        if (isLegacyGradeOnly) {
+          result.legacyGradePrices = normalizeGradePrices(raw);
+        } else {
+          Object.entries(raw).forEach(([itemName, value]) => addItem(itemName, value?.gradePrices || value));
+        }
+      }
+
+      result.items.sort((a, b) => a.itemName.localeCompare(b.itemName, "ko-KR"));
+      return result;
     }
 
     function loadPriceRules() {
@@ -490,8 +569,20 @@
       localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(priceRules));
     }
 
-    function priceInputValue(grade) {
-      return priceRules[grade] ? String(priceRules[grade]) : "";
+    function freshPriceDraft() {
+      return { itemName: "", gradePrices: emptyGradePrices() };
+    }
+
+    function priceValueLabel(value) {
+      return Number.isFinite(Number(value)) && Number(value) > 0 ? String(Math.round(Number(value))) : "";
+    }
+
+    function draftPriceInputValue(grade) {
+      return priceValueLabel(priceDraft.gradePrices[grade]);
+    }
+
+    function rowPriceInputValue(index, grade) {
+      return priceValueLabel(priceRules.items[index]?.gradePrices?.[grade]);
     }
 
     function parseKgValue(value) {
@@ -644,9 +735,13 @@
       toast("샘플 데이터가 초기화되었습니다.");
     }
 
-    function findPrice(grade) {
-      const unitPrice = priceRules[grade];
-      return Number.isFinite(unitPrice) && unitPrice > 0 ? Number(unitPrice) : null;
+    function findPrice(item, grade) {
+      const name = String(item || "").trim();
+      const row = priceRules.items.find((rule) => rule.itemName === name);
+      const itemPrice = row?.gradePrices?.[grade];
+      if (Number.isFinite(Number(itemPrice)) && Number(itemPrice) > 0) return Number(itemPrice);
+      const legacyPrice = priceRules.legacyGradePrices?.[grade];
+      return Number.isFinite(Number(legacyPrice)) && Number(legacyPrice) > 0 ? Number(legacyPrice) : null;
     }
 
     function lineKg(containerType, containerSize, customKg) {
@@ -656,7 +751,7 @@
     }
 
     function makeLine(item, grade, containerType, containerSize, count, customKg = 0) {
-      const unitPrice = findPrice(grade);
+      const unitPrice = findPrice(item, grade);
       const kg = lineKg(containerType, containerSize, customKg);
       const hasCalculableKg = containerType !== "기타" || kg > 0;
       const amount = unitPrice === null || !hasCalculableKg ? null : Math.round(unitPrice * (kg / 20) * Number(count || 0));
@@ -810,8 +905,9 @@
     }
 
     function setActiveNav() {
+      const activeScreen = ["form", "preview", "send"].includes(currentScreen) ? "send" : currentScreen;
       document.querySelectorAll("[data-nav]").forEach((button) => {
-        button.classList.toggle("active", button.dataset.nav === currentScreen);
+        button.classList.toggle("active", button.dataset.nav === activeScreen);
       });
     }
 
@@ -865,7 +961,7 @@
           </div>
         </div>
         <div class="home-actions">
-          <button class="quick-button" type="button" onclick="showScreen('send')">
+          <button class="quick-button" type="button" onclick="startNew()">
             <span><strong>문자</strong><span class="muted">작성, 문자앱 열기, 전송 표시</span></span>
             <span class="count">+</span>
           </button>
@@ -876,10 +972,6 @@
           <button class="quick-button" type="button" onclick="showScreen('send')">
             <span><strong>문자 전송 대기</strong><span class="muted">문자대기/문자앱열림/재전송필요</span></span>
             <span class="count">${sendWaiting.length}</span>
-          </button>
-          <button class="quick-button" type="button" onclick="showScreen('price')">
-            <span><strong>단가 관리</strong><span class="muted">A/B/C/소 20kg 기준</span></span>
-            <span class="count">₩</span>
           </button>
           <button class="quick-button" type="button" onclick="showScreen('settlement')">
             <span><strong>일자별 현황</strong><span class="muted">과일, 용기, 농가별 집계</span></span>
@@ -894,26 +986,58 @@
     }
 
     function renderPrice() {
+      const legacyNotice = hasAnyGradePrice(priceRules.legacyGradePrices)
+        ? `<p class="muted">이전 등급 단독 단가가 남아 있어 해당 품목 단가가 없을 때만 임시 fallback으로 사용합니다. 앞으로 새 단가는 과일/품목별로 저장하세요.</p>`
+        : "";
       document.getElementById("screen-price").innerHTML = `
         <div class="section-head">
           <div>
             <h1>단가 관리</h1>
-            <p class="muted">A, B, C, 소 등급별 20kg 기준 단가를 이 브라우저 localStorage에 저장합니다.</p>
+            <p class="muted">과일/품목별 A, B, C, 소 20kg 기준 단가를 이 브라우저 localStorage에 저장합니다.</p>
           </div>
           <button class="ghost-button" type="button" onclick="showScreen('home')">홈으로</button>
         </div>
         <div class="panel">
-          <h2>20kg 기준 단가</h2>
-          <p class="muted">실운영 서버 단가표가 아니라 검토용 브라우저 저장 단가표입니다. 빈 값이면 해당 등급은 단가미정으로 처리됩니다.</p>
+          <h2>과일/품목 추가</h2>
+          <p class="muted">실운영 서버 단가표가 아니라 검토용 브라우저 저장 단가표입니다. 빈 값이면 해당 과일/등급 조합은 단가미정으로 처리됩니다.</p>
+          ${legacyNotice}
+          <div class="field">
+            <label for="priceItemName">과일/품목</label>
+            <input id="priceItemName" value="${escapeHtml(priceDraft.itemName)}" oninput="priceDraft.itemName = this.value" placeholder="예: 사과">
+          </div>
           ${GRADES.map((grade) => `
             <div class="field">
-              <label for="price-${grade}">${grade} 등급 20kg 기준 단가</label>
-              <input id="price-${grade}" type="number" min="0" inputmode="numeric" value="${escapeHtml(priceInputValue(grade))}" oninput="priceRules['${grade}'] = this.value" placeholder="예: 50000">
+              <label for="price-new-${grade}">${grade} 등급 20kg 기준 단가</label>
+              <input id="price-new-${grade}" type="number" min="0" inputmode="numeric" value="${escapeHtml(draftPriceInputValue(grade))}" oninput="priceDraft.gradePrices['${grade}'] = this.value" placeholder="예: 50000">
             </div>
           `).join("")}
           <div class="button-row">
-            <button class="primary-button" type="button" onclick="savePriceRulesAndRender()">단가 저장</button>
+            <button class="primary-button" type="button" onclick="savePriceItemFromDraft()">과일/품목 단가 저장</button>
           </div>
+        </div>
+        <div class="panel">
+          <h2>저장된 20kg 기준 단가</h2>
+          ${priceRules.items.length ? `
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>과일/품목</th>${GRADES.map((grade) => `<th>${grade}</th>`).join("")}<th>수정/삭제</th></tr></thead>
+                <tbody>
+                  ${priceRules.items.map((row, index) => `
+                    <tr>
+                      <td><input value="${escapeHtml(row.itemName)}" oninput="setPriceRowItemName(${index}, this.value)" aria-label="과일/품목"></td>
+                      ${GRADES.map((grade) => `<td><input type="number" min="0" inputmode="numeric" value="${escapeHtml(rowPriceInputValue(index, grade))}" oninput="setPriceRowValue(${index}, '${grade}', this.value)" aria-label="${grade} 단가"></td>`).join("")}
+                      <td>
+                        <div class="button-row">
+                          <button class="ghost-button" type="button" onclick="savePriceRulesAndRender()">수정 저장</button>
+                          <button class="danger-button" type="button" onclick="deletePriceRule(${index})">삭제</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </div>
+          ` : "<div class='empty'>저장된 과일/품목별 단가가 없습니다.</div>"}
         </div>
       `;
     }
@@ -923,6 +1047,38 @@
       renderAll();
       showScreen("price");
       toast("20kg 기준 단가를 저장했습니다.");
+    }
+
+    function savePriceItemFromDraft() {
+      const itemName = String(priceDraft.itemName || "").trim();
+      if (!itemName) {
+        toast("과일/품목명을 입력하세요.");
+        return;
+      }
+      const existing = priceRules.items.findIndex((row) => row.itemName === itemName);
+      const nextRow = { itemName, gradePrices: normalizeGradePrices(priceDraft.gradePrices) };
+      if (existing >= 0) priceRules.items[existing] = nextRow;
+      else priceRules.items.push(nextRow);
+      priceDraft = freshPriceDraft();
+      savePriceRulesAndRender();
+    }
+
+    function setPriceRowItemName(index, value) {
+      if (!priceRules.items[index]) return;
+      priceRules.items[index].itemName = value;
+    }
+
+    function setPriceRowValue(index, grade, value) {
+      if (!priceRules.items[index]) return;
+      priceRules.items[index].gradePrices[grade] = value;
+    }
+
+    function deletePriceRule(index) {
+      const row = priceRules.items[index];
+      if (!row) return;
+      if (!confirm(`${row.itemName} 단가를 삭제할까요?`)) return;
+      priceRules.items.splice(index, 1);
+      savePriceRulesAndRender();
     }
 
     function historyRows() {
@@ -970,6 +1126,97 @@
       if (match) applyHistoryMatch(match, key);
     }
 
+    function favoriteRows(limit = 5) {
+      const map = new Map();
+      historyRows().forEach((confirmation) => {
+        (confirmation.lines || []).forEach((line) => {
+          if (!line.item || !GRADES.includes(line.grade)) return;
+          const isBox = line.containerType === "상자" && line.containerSize === "20kg";
+          const isCustom = line.containerType === "기타";
+          if (!isBox && !isCustom) return;
+          const kg = isCustom ? Number(line.customKg || parseKgValue(line.containerSize)) : 20;
+          const key = [confirmation.farmerName, line.item, line.grade, line.containerType, kg].join("|");
+          const time = confirmation.updatedAt || confirmation.createdAt || confirmation.receivedAt || "";
+          if (!map.has(key)) {
+            map.set(key, {
+              key,
+              frequency: 0,
+              latestTime: "",
+              farmerName: confirmation.farmerName,
+              phone: confirmation.phone || "",
+              bankName: confirmation.bankName || "",
+              accountNo: confirmation.accountNo || "",
+              accountHolder: confirmation.accountHolder || "",
+              item: line.item,
+              grade: line.grade,
+              containerType: line.containerType,
+              containerSize: isCustom ? "" : "20kg",
+              customKg: isCustom ? kg : 20,
+              count: Number(line.count || 1)
+            });
+          }
+          const favorite = map.get(key);
+          favorite.frequency += 1;
+          if (time >= favorite.latestTime) {
+            favorite.latestTime = time;
+            favorite.phone = confirmation.phone || favorite.phone;
+            favorite.bankName = confirmation.bankName || favorite.bankName;
+            favorite.accountNo = confirmation.accountNo || favorite.accountNo;
+            favorite.accountHolder = confirmation.accountHolder || favorite.accountHolder;
+            favorite.count = Number(line.count || favorite.count || 1);
+          }
+        });
+      });
+      return [...map.values()]
+        .sort((a, b) => b.frequency - a.frequency || b.latestTime.localeCompare(a.latestTime))
+        .slice(0, limit);
+    }
+
+    function favoriteContainerLabel(favorite) {
+      return favorite.containerType === "기타" ? `기타 ${favorite.customKg > 0 ? favorite.customKg + "kg" : "kg 미입력"}` : "20kg 상자";
+    }
+
+    function renderFavoritePanel() {
+      if (draft.id) return "";
+      const favorites = favoriteRows();
+      return `
+        <div class="panel">
+          <h2>즐겨찾기</h2>
+          ${favorites.length ? `
+            <p class="muted">자주 입력된 농가와 상세 줄 조합입니다. 누른 뒤 저장 전 수량과 단가를 확인하세요.</p>
+            <div class="favorite-grid">
+              ${favorites.map((favorite, index) => `
+                <button class="option-card" type="button" onclick="applyFavorite(${index})">
+                  <strong>${escapeHtml(favorite.farmerName)} · ${escapeHtml(favorite.item)} ${escapeHtml(favorite.grade)}</strong>
+                  <span>${escapeHtml(favoriteContainerLabel(favorite))} · ${number(favorite.count)}개 · ${favorite.frequency}회</span>
+                </button>
+              `).join("")}
+            </div>
+          ` : "<div class='empty'>과거 이력이 쌓이면 자주 쓰는 조합이 표시됩니다.</div>"}
+        </div>
+      `;
+    }
+
+    function applyFavorite(index) {
+      const favorite = favoriteRows()[index];
+      if (!favorite) return;
+      draft.farmerName = favorite.farmerName || "";
+      draft.phone = favorite.phone || "";
+      draft.bankName = favorite.bankName || "";
+      draft.accountNo = favorite.accountNo || "";
+      draft.accountHolder = favorite.accountHolder || favorite.farmerName || "";
+      draft.line = {
+        item: favorite.item,
+        grade: favorite.grade,
+        containerType: favorite.containerType,
+        containerSize: favorite.containerType === "기타" ? (favorite.customKg > 0 ? `${favorite.customKg}kg` : "") : "20kg",
+        customKg: favorite.customKg,
+        count: Number(favorite.count || 1)
+      };
+      draft.autoFillNotice = "즐겨찾기에서 불러왔습니다. 저장 전 수량과 단가를 확인하세요.";
+      renderForm();
+    }
+
     function renderForm() {
       const line = draft.line;
       const selectedContainer = line.containerType === "기타"
@@ -983,6 +1230,7 @@
           </div>
           <button class="ghost-button" type="button" onclick="showScreen('home')">홈으로</button>
         </div>
+        ${renderFavoritePanel()}
         <div class="panel">
           <div class="field">
             <label for="farmerName">농가명</label>
@@ -1078,9 +1326,10 @@
     }
 
     function lineEstimateLabel() {
-      if (!draft.line.grade) return "등급을 선택하면 20kg 기준 단가를 확인합니다.";
-      const unitPrice = findPrice(draft.line.grade);
-      if (unitPrice === null) return `${draft.line.grade} 등급 20kg 기준 단가 미정`;
+      if (!draft.line.item) return "품목을 선택하면 과일별 20kg 기준 단가를 확인합니다.";
+      if (!draft.line.grade) return "등급을 선택하면 과일별 20kg 기준 단가를 확인합니다.";
+      const unitPrice = findPrice(draft.line.item, draft.line.grade);
+      if (unitPrice === null) return `${draft.line.item} ${draft.line.grade} 등급 20kg 기준 단가 미정`;
       if (!draft.line.containerType) return `20kg 기준 단가 ${money(unitPrice)} · 용기를 선택하세요.`;
       const preview = makeLine(draft.line.item || "", draft.line.grade, draft.line.containerType, draft.line.containerSize, draft.line.count, draft.line.customKg);
       return isPricePending(preview) ? `20kg 기준 단가 ${money(unitPrice)} · kg 확인 필요` : `20kg 기준 단가 ${money(unitPrice)} · 예상 금액 ${money(preview.amount)}`;
@@ -1551,6 +1800,32 @@
       `;
     }
 
+    function renderBarChart(title, rows, valueLabel = "건") {
+      const visibleRows = rows.filter((row) => Number(row.value || 0) > 0);
+      const max = Math.max(...visibleRows.map((row) => Number(row.value || 0)), 0);
+      return `
+        <div class="panel">
+          <h2>${title}</h2>
+          ${visibleRows.length ? `
+            <div class="chart-list">
+              ${visibleRows.map((row) => {
+                const width = max ? Math.max(4, Math.round((Number(row.value || 0) / max) * 100)) : 0;
+                return `
+                  <div class="chart-row">
+                    <div class="chart-label">
+                      <span>${escapeHtml(row.label)}</span>
+                      <span>${number(row.value)}${valueLabel}</span>
+                    </div>
+                    <div class="chart-track"><div class="chart-bar" style="width:${width}%"></div></div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+          ` : "<div class='empty'>표시할 데이터가 없습니다.</div>"}
+        </div>
+      `;
+    }
+
     function renderStatusList(title, rows) {
       return `
         <div class="panel">
@@ -1581,6 +1856,13 @@
       const itemRows = aggregateRows(rows, (confirmation, line) => line.item || "품목 미입력");
       const containerRows = aggregateRows(rows, (confirmation, line) => containerDisplay(line));
       const farmerRows = farmerAggregateRows(rows);
+      const statusChartRows = [
+        { label: "문자 미전송", value: summary.unsentRows.length },
+        { label: "문자 전송 완료", value: summary.sentRows.length },
+        { label: "재전송필요", value: summary.resendRows.length },
+        { label: "단가미정", value: summary.pendingRows.length }
+      ];
+      const itemChartRows = itemRows.slice(0, 5).map((row) => ({ label: row.key, value: row.count }));
       document.getElementById("screen-settlement").innerHTML = `
         <div class="section-head">
           <div>
@@ -1624,6 +1906,10 @@
             <span class="muted">정산 반영 가능 금액</span>
             <h2>${money(summary.payableTotal)}</h2>
           </div>
+        </div>
+        <div class="status-split">
+          ${renderBarChart("문자상태별 확인서", statusChartRows, "건")}
+          ${renderBarChart("과일/품목별 수량", itemChartRows, "개")}
         </div>
         ${summary.resendRows.length ? `
           <div class="panel warning-panel">
