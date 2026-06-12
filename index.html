@@ -3,30 +3,26 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0f766e">
-  <title>해바람 입고 정산 MVP</title>
+  <meta name="theme-color" content="#166534">
+  <title>전자 입고확인서 MVP</title>
   <style>
     :root {
-      --bg: #f6f7f2;
+      --bg: #f5f7f1;
       --surface: #ffffff;
       --ink: #17202a;
-      --muted: #5d6b78;
-      --line: #d8ddd3;
-      --primary: #0f766e;
-      --primary-dark: #0b5f59;
+      --muted: #637381;
+      --line: #d7ded2;
+      --primary: #166534;
+      --primary-dark: #14532d;
       --accent: #b45309;
       --danger: #b91c1c;
-      --ok: #166534;
-      --warning: #92400e;
       --blue: #1d4ed8;
-      --shadow: 0 12px 28px rgba(18, 32, 43, 0.10);
+      --shadow: 0 12px 28px rgba(22, 32, 42, 0.10);
       --radius: 8px;
       font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -36,21 +32,10 @@
       line-height: 1.45;
     }
 
-    button,
-    input,
-    select {
-      font: inherit;
-    }
+    button, input, select, textarea { font: inherit; }
+    button { cursor: pointer; }
 
-    button {
-      cursor: pointer;
-    }
-
-    .app {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    .app { min-height: 100vh; display: flex; flex-direction: column; }
 
     .topbar {
       position: sticky;
@@ -62,7 +47,7 @@
     }
 
     .topbar-inner {
-      max-width: 1160px;
+      max-width: 1120px;
       margin: 0 auto;
       padding: 14px 16px 10px;
     }
@@ -75,20 +60,8 @@
       margin-bottom: 12px;
     }
 
-    .brand {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .brand strong {
-      font-size: 22px;
-    }
-
-    .brand span {
-      color: var(--muted);
-      font-size: 14px;
-    }
+    .brand strong { display: block; font-size: 22px; }
+    .brand span { color: var(--muted); font-size: 14px; }
 
     .nav {
       display: grid;
@@ -96,48 +69,35 @@
       gap: 8px;
     }
 
-    .nav button,
-    .quick-button,
-    .primary-button,
-    .secondary-button,
-    .ghost-button,
-    .danger-button,
-    .option-card,
-    .qty-button {
-      border: 0;
+    .nav button, .quick-button, .primary-button, .secondary-button, .ghost-button, .danger-button, .option-card, .qty-button {
       border-radius: var(--radius);
-      min-height: 48px;
-      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      min-height: 50px;
+      border: 0;
+      font-weight: 800;
     }
 
     .nav button {
       background: #edf1ed;
-      color: #25323a;
+      color: #263238;
       padding: 12px 8px;
-      font-weight: 700;
     }
 
     .nav button.active {
       background: var(--primary);
       color: #fff;
-      box-shadow: 0 7px 18px rgba(15, 118, 110, 0.22);
+      box-shadow: 0 7px 18px rgba(22, 101, 52, 0.22);
     }
 
     main {
       flex: 1;
       width: 100%;
-      max-width: 1160px;
+      max-width: 1120px;
       margin: 0 auto;
       padding: 18px 16px 36px;
     }
 
-    .screen {
-      display: none;
-    }
-
-    .screen.active {
-      display: block;
-    }
+    .screen { display: none; }
+    .screen.active { display: block; }
 
     .section-head {
       display: flex;
@@ -147,39 +107,18 @@
       margin: 8px 0 16px;
     }
 
-    h1,
-    h2,
-    h3 {
-      margin: 0;
-      letter-spacing: 0;
-      line-height: 1.2;
-    }
+    h1, h2, h3 { margin: 0; line-height: 1.2; letter-spacing: 0; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 24px; }
+    h3 { font-size: 20px; }
 
-    h1 {
-      font-size: 28px;
-    }
+    .muted { color: var(--muted); font-size: 15px; }
 
-    h2 {
-      font-size: 24px;
-    }
-
-    h3 {
-      font-size: 20px;
-    }
-
-    .muted {
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    .home-actions {
-      display: grid;
-      gap: 12px;
-    }
+    .home-actions, .stats-grid, .line-list { display: grid; gap: 12px; }
 
     .quick-button {
       width: 100%;
-      min-height: 82px;
+      min-height: 86px;
       padding: 16px;
       background: var(--surface);
       color: var(--ink);
@@ -191,26 +130,21 @@
       text-align: left;
     }
 
-    .quick-button strong {
-      display: block;
-      font-size: 22px;
-      margin-bottom: 4px;
-    }
-
+    .quick-button strong { display: block; font-size: 22px; margin-bottom: 4px; }
     .quick-button .count {
       min-width: 52px;
       min-height: 52px;
       border-radius: 50%;
-      background: #fff3d6;
-      color: var(--warning);
+      background: #fff7ed;
+      color: var(--accent);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      font-weight: 900;
       font-size: 22px;
+      font-weight: 900;
     }
 
-    .panel {
+    .panel, .confirm-card, .line-item {
       background: var(--surface);
       border: 1px solid var(--line);
       border-radius: var(--radius);
@@ -219,89 +153,10 @@
       margin-bottom: 14px;
     }
 
-    .stats-grid,
-    .master-grid {
-      display: grid;
-      gap: 12px;
-    }
+    .field { display: grid; gap: 8px; margin-bottom: 14px; }
+    label { font-weight: 800; }
 
-    .stat {
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 16px;
-      min-height: 112px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    .stat .label {
-      color: var(--muted);
-      font-size: 15px;
-      font-weight: 700;
-    }
-
-    .stat .value {
-      font-size: 30px;
-      font-weight: 900;
-    }
-
-    .stat.primary {
-      border-left: 7px solid var(--primary);
-    }
-
-    .stat.accent {
-      border-left: 7px solid var(--accent);
-    }
-
-    .stat.blue {
-      border-left: 7px solid var(--blue);
-    }
-
-    .wizard-layout {
-      display: grid;
-      gap: 14px;
-    }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    .step {
-      min-height: 44px;
-      border-radius: var(--radius);
-      background: #e9eee8;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 800;
-      color: #3a4a54;
-      text-align: center;
-      padding: 6px;
-    }
-
-    .step.active {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .field {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    label {
-      font-weight: 800;
-    }
-
-    input,
-    select {
+    input, select, textarea {
       width: 100%;
       min-height: 54px;
       border-radius: var(--radius);
@@ -311,16 +166,18 @@
       color: var(--ink);
     }
 
-    input:focus,
-    select:focus {
-      outline: 3px solid rgba(15, 118, 110, 0.18);
+    textarea { min-height: 180px; resize: vertical; }
+
+    input:focus, select:focus, textarea:focus {
+      outline: 3px solid rgba(22, 101, 52, 0.18);
       border-color: var(--primary);
     }
 
-    .option-grid {
+    .option-grid, .qty-control {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
+      margin-bottom: 12px;
     }
 
     .option-card {
@@ -333,87 +190,14 @@
       color: var(--ink);
     }
 
-    .option-card strong {
-      display: block;
-      font-size: 20px;
-      margin-bottom: 4px;
-    }
-
+    .option-card strong { display: block; font-size: 20px; margin-bottom: 4px; }
     .option-card.selected {
       border-color: var(--primary);
-      background: #e9f6f4;
-      box-shadow: 0 8px 18px rgba(15, 118, 110, 0.16);
+      background: #ecfdf3;
+      box-shadow: 0 8px 18px rgba(22, 101, 52, 0.16);
     }
 
-    .recent-strip {
-      display: flex;
-      overflow-x: auto;
-      gap: 8px;
-      padding: 2px 0 10px;
-    }
-
-    .recent-strip button {
-      flex: 0 0 auto;
-      min-height: 50px;
-      border-radius: var(--radius);
-      border: 1px solid #cfdbd6;
-      background: #eff7f4;
-      padding: 9px 12px;
-      font-weight: 800;
-      color: #153c39;
-    }
-
-    .button-row {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin-top: 14px;
-    }
-
-    .primary-button,
-    .secondary-button,
-    .ghost-button,
-    .danger-button {
-      min-height: 54px;
-      padding: 12px 16px;
-      font-weight: 900;
-    }
-
-    .primary-button {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .secondary-button {
-      background: #25323a;
-      color: #fff;
-    }
-
-    .ghost-button {
-      background: #edf1ed;
-      color: #263238;
-      border: 1px solid var(--line);
-    }
-
-    .danger-button {
-      background: #fee2e2;
-      color: var(--danger);
-      border: 1px solid #fecaca;
-    }
-
-    .primary-button:disabled,
-    .secondary-button:disabled,
-    .ghost-button:disabled {
-      opacity: 0.45;
-      cursor: not-allowed;
-    }
-
-    .qty-control {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
-    }
+    .qty-control { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
     .qty-button {
       min-height: 58px;
@@ -422,6 +206,25 @@
       border: 2px solid #fed7aa;
       font-weight: 900;
     }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .primary-button, .secondary-button, .ghost-button, .danger-button {
+      min-height: 54px;
+      padding: 12px 16px;
+      font-weight: 900;
+    }
+
+    .primary-button { background: var(--primary); color: #fff; }
+    .secondary-button { background: #25323a; color: #fff; }
+    .ghost-button { background: #edf1ed; color: #263238; border: 1px solid var(--line); }
+    .danger-button { background: #fee2e2; color: var(--danger); border: 1px solid #fecaca; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
 
     .money-box {
       display: grid;
@@ -433,35 +236,7 @@
       margin-top: 12px;
     }
 
-    .money-box b {
-      font-size: 26px;
-    }
-
-    .line-list {
-      display: grid;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .line-item,
-    .settlement-row,
-    .receipt-card {
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 12px;
-      background: #fff;
-      display: grid;
-      gap: 8px;
-    }
-
-    .line-item .top,
-    .settlement-row .top,
-    .receipt-card .top {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: flex-start;
-    }
+    .money-box b { font-size: 28px; }
 
     .badge {
       display: inline-flex;
@@ -476,95 +251,9 @@
       white-space: nowrap;
     }
 
-    .badge.waiting {
-      background: #fff7ed;
-      color: #9a3412;
-    }
-
-    .badge.done {
-      background: #eaf7ed;
-      color: var(--ok);
-    }
-
-    .badge.pending-price {
-      background: #fee2e2;
-      color: var(--danger);
-    }
-
-    .receipt-details {
-      display: none;
-      margin-top: 10px;
-    }
-
-    .receipt-card.open .receipt-details {
-      display: block;
-    }
-
-    .post-save-actions {
-      display: grid;
-      gap: 12px;
-      margin-top: 14px;
-    }
-
-    .price-editor {
-      display: grid;
-      gap: 8px;
-      margin-top: 10px;
-      padding: 12px;
-      border: 1px solid #fed7aa;
-      border-radius: var(--radius);
-      background: #fff7ed;
-    }
-
-    .price-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-    }
-
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      min-width: 860px;
-      font-size: 16px;
-    }
-
-    th,
-    td {
-      border-bottom: 1px solid var(--line);
-      padding: 10px;
-      text-align: left;
-      vertical-align: middle;
-    }
-
-    th {
-      background: #edf1ed;
-      font-size: 14px;
-      color: #34444d;
-    }
-
-    td select {
-      min-height: 42px;
-      padding: 6px;
-      border-width: 1px;
-      font-size: 15px;
-    }
-
-    .empty {
-      padding: 20px;
-      border: 1px dashed #b9c4bd;
-      border-radius: var(--radius);
-      background: #fff;
-      color: var(--muted);
-      text-align: center;
-    }
+    .badge.waiting { background: #fff7ed; color: #9a3412; }
+    .badge.done { background: #eaf7ed; color: var(--primary); }
+    .badge.pending-price { background: #fee2e2; color: var(--danger); }
 
     .summary-list {
       display: grid;
@@ -582,6 +271,38 @@
       padding: 8px 0;
     }
 
+    .confirm-preview {
+      border: 3px solid var(--primary);
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .preview-no { font-size: 16px; color: var(--muted); font-weight: 800; }
+    .preview-title { font-size: 30px; font-weight: 900; margin: 8px 0 14px; }
+
+    .table-wrap {
+      overflow-x: auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      margin-top: 12px;
+    }
+
+    table { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 16px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #edf1ed; font-size: 14px; color: #34444d; }
+
+    .empty {
+      padding: 20px;
+      border: 1px dashed #b9c4bd;
+      border-radius: var(--radius);
+      background: #fff;
+      color: var(--muted);
+      text-align: center;
+    }
+
     .toast {
       position: fixed;
       left: 16px;
@@ -597,46 +318,16 @@
       font-weight: 800;
     }
 
-    .toast.show {
-      display: block;
-    }
+    .toast.show { display: block; }
 
     @media (min-width: 760px) {
-      body {
-        font-size: 17px;
-      }
-
-      .home-actions,
-      .stats-grid,
-      .master-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .wizard-layout {
-        grid-template-columns: 1.4fr 0.8fr;
-        align-items: start;
-      }
-
-      .option-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
+      .home-actions, .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .option-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
 
     @media (min-width: 1020px) {
-      .stats-grid,
-      .master-grid {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-      }
-
-      .home-actions {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-
-      .quick-button {
-        min-height: 132px;
-        align-items: flex-start;
-        flex-direction: column;
-      }
+      .home-actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .quick-button { min-height: 132px; align-items: flex-start; flex-direction: column; }
     }
   </style>
 </head>
@@ -646,15 +337,15 @@
       <div class="topbar-inner">
         <div class="brand-row">
           <div class="brand">
-            <strong>해바람 농가 입고</strong>
-            <span id="todayLabel">현장 입력 · 정산 집계 프로토타입</span>
+            <strong>전자 입고확인서</strong>
+            <span id="todayLabel">문자 확인 · 밤 정산 프로토타입</span>
           </div>
-          <button class="ghost-button" type="button" onclick="seedReset()">샘플 초기화</button>
+          <button class="ghost-button" type="button" onclick="resetSample()">샘플 초기화</button>
         </div>
         <nav class="nav" aria-label="주요 화면">
           <button type="button" data-nav="home" class="active" onclick="showScreen('home')">홈</button>
           <button type="button" data-nav="today" onclick="showScreen('today')">오늘</button>
-          <button type="button" data-nav="admin" onclick="showScreen('admin')">관리</button>
+          <button type="button" data-nav="send" onclick="showScreen('send')">문자</button>
           <button type="button" data-nav="settlement" onclick="showScreen('settlement')">정산</button>
         </nav>
       </div>
@@ -662,56 +353,41 @@
 
     <main>
       <section id="screen-home" class="screen active"></section>
-      <section id="screen-wizard" class="screen"></section>
+      <section id="screen-form" class="screen"></section>
+      <section id="screen-preview" class="screen"></section>
       <section id="screen-today" class="screen"></section>
-      <section id="screen-admin" class="screen"></section>
+      <section id="screen-send" class="screen"></section>
       <section id="screen-settlement" class="screen"></section>
-      <section id="screen-afterSave" class="screen"></section>
-      <section id="screen-master" class="screen"></section>
     </main>
   </div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
   <script>
-    const STORAGE_KEY = "haebaramReceivingAppV1";
-    const STATUS = ["입력필요", "정산대기", "사무확인", "정산확정", "입금대기", "입금완료"];
-    const STEPS = ["농가", "영수증", "품목", "등급", "용기", "수량", "확인"];
-
-    const MASTER = {
-      farmers: [
-        { id: "F001", name: "김해숙 농가", phone: "010-3412-7788", bankName: "농협", accountNo: "351-0123-4567-89", accountHolder: "김해숙", memo: "오전 선호" },
-        { id: "F002", name: "박문호 농가", phone: "010-8890-1204", bankName: "농협", accountNo: "301-7700-2244-11", accountHolder: "박문호", memo: "배 주력" },
-        { id: "F003", name: "이정자 농가", phone: "010-4400-9361", bankName: "농협", accountNo: "352-6600-1000-45", accountHolder: "이정자", memo: "전화 확인 필요" },
-        { id: "F004", name: "최성민 농가", phone: "010-7102-4455", bankName: "신협", accountNo: "131-019-004455", accountHolder: "최성민", memo: "복숭아" },
-        { id: "F005", name: "윤미경 농가", phone: "010-5530-8877", bankName: "농협", accountNo: "356-1122-9000-77", accountHolder: "윤미경", memo: "포도 당일 정산 요청" },
-        { id: "F006", name: "정도윤 농가", phone: "010-9900-6123", bankName: "국민", accountNo: "777701-04-292929", accountHolder: "정도윤", memo: "감귤 소량" }
-      ],
-      items: ["사과", "배", "복숭아", "포도", "감귤"],
-      grades: ["특", "상", "보통", "가공"],
-      containers: [
-        { type: "박스", size: "5kg" },
-        { type: "박스", size: "10kg" },
-        { type: "박스", size: "15kg" },
-        { type: "통", size: "12입" },
-        { type: "망", size: "20kg" }
-      ],
-      priceRules: [
-        ["사과", "특", "5kg", 36000], ["사과", "상", "5kg", 30000], ["사과", "보통", "5kg", 22000], ["사과", "가공", "5kg", 12000],
-        ["사과", "특", "10kg", 68000], ["사과", "상", "10kg", 56000], ["사과", "보통", "10kg", 41000], ["사과", "가공", "10kg", 23000],
-        ["배", "특", "15kg", 72000], ["배", "상", "15kg", 62000], ["배", "보통", "15kg", 48000], ["배", "가공", "15kg", 26000],
-        ["복숭아", "특", "5kg", 42000], ["복숭아", "상", "5kg", 35000], ["복숭아", "보통", "5kg", 26000], ["복숭아", "가공", "5kg", 15000],
-        ["포도", "특", "5kg", 52000], ["포도", "상", "5kg", 43000], ["포도", "보통", "5kg", 32000], ["포도", "가공", "5kg", 18000],
-        ["감귤", "특", "10kg", 34000], ["감귤", "상", "10kg", 28000], ["감귤", "보통", "10kg", 21000], ["감귤", "가공", "10kg", 11000],
-        ["사과", "상", "12입", 26000], ["배", "상", "12입", 30000], ["포도", "상", "12입", 38000], ["감귤", "상", "20kg", 52000]
-      ].map(([item, grade, containerSize, unitPrice]) => ({ item, grade, containerSize, unitPrice }))
-    };
+    const STORAGE_KEY = "haebaramConfirmAppV1";
+    const STATUS = ["문자대기", "문자앱열림", "전송완료표시", "정산대기", "정산확정", "입금완료"];
+    const ITEMS = ["사과", "배", "복숭아", "포도", "감귤"];
+    const GRADES = ["특", "상", "보통", "가공"];
+    const CONTAINERS = [
+      { type: "박스", size: "5kg" },
+      { type: "박스", size: "10kg" },
+      { type: "박스", size: "15kg" },
+      { type: "통", size: "12입" },
+      { type: "망", size: "20kg" }
+    ];
+    const PRICE_RULES = [
+      ["사과", "특", "5kg", 36000], ["사과", "상", "5kg", 30000], ["사과", "보통", "5kg", 22000],
+      ["사과", "특", "10kg", 68000], ["사과", "상", "10kg", 56000], ["사과", "보통", "10kg", 41000],
+      ["배", "특", "15kg", 72000], ["배", "상", "15kg", 62000], ["배", "보통", "15kg", 48000],
+      ["복숭아", "특", "5kg", 42000], ["복숭아", "상", "5kg", 35000], ["복숭아", "보통", "5kg", 26000],
+      ["포도", "특", "5kg", 52000], ["포도", "상", "5kg", 43000], ["포도", "보통", "5kg", 32000],
+      ["감귤", "특", "10kg", 34000], ["감귤", "상", "10kg", 28000], ["감귤", "보통", "10kg", 21000],
+      ["감귤", "상", "20kg", 52000]
+    ].map(([item, grade, containerSize, unitPrice]) => ({ item, grade, containerSize, unitPrice }));
 
     let db = loadDb();
     let currentScreen = "home";
-    let farmerQuery = "";
-    let wizard = freshWizard();
-    let lastAddedLine = null;
-    let afterSaveFarmerId = "";
+    let draft = freshDraft();
+    let selectedConfirmationId = "";
 
     function localDateISO(date = new Date()) {
       const year = date.getFullYear();
@@ -735,6 +411,122 @@
       return Number(value || 0).toLocaleString("ko-KR") + "원";
     }
 
+    function number(value) {
+      return Number(value || 0).toLocaleString("ko-KR");
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+      }[char]));
+    }
+
+    function digitsOnly(value) {
+      return String(value || "").replace(/\D/g, "");
+    }
+
+    function last4(value) {
+      const digits = digitsOnly(value);
+      return digits.slice(-4);
+    }
+
+    function loadDb() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return createSeedDb();
+      try {
+        const parsed = JSON.parse(raw);
+        return { confirmations: parsed.confirmations || [] };
+      } catch (error) {
+        console.warn("confirm app storage parse failed", error);
+        return createSeedDb();
+      }
+    }
+
+    function createSeedDb() {
+      return {
+        confirmations: [
+          {
+            id: "C001",
+            no: `EC-${localDateISO().replaceAll("-", "")}-001`,
+            farmerName: "김해숙 농가",
+            phoneLast4: "7788",
+            receivedAt: `${localDateISO()}T08:30`,
+            status: "전송완료표시",
+            lines: [
+              makeLine("사과", "상", "박스", "10kg", 5),
+              makeLine("사과", "특", "박스", "15kg", 2)
+            ],
+            createdAt: `${localDateISO()}T08:30`,
+            updatedAt: `${localDateISO()}T08:40`
+          }
+        ]
+      };
+    }
+
+    function saveDb() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+    }
+
+    function freshDraft() {
+      const seq = String((db?.confirmations?.length || 0) + 1).padStart(3, "0");
+      return {
+        id: "",
+        no: `EC-${localDateISO().replaceAll("-", "")}-${seq}`,
+        farmerName: "",
+        phone: "",
+        receivedAt: nowLocal(),
+        status: "문자대기",
+        line: { item: "", grade: "", containerType: "", containerSize: "", count: 1 },
+        lines: []
+      };
+    }
+
+    function resetSample() {
+      if (!confirm("샘플 데이터를 초기화할까요? 현재 브라우저 저장 데이터가 바뀝니다.")) return;
+      db = createSeedDb();
+      saveDb();
+      draft = freshDraft();
+      selectedConfirmationId = "";
+      renderAll();
+      toast("샘플 데이터가 초기화되었습니다.");
+    }
+
+    function findPrice(item, grade, containerSize) {
+      const rule = PRICE_RULES.find((row) => row.item === item && row.grade === grade && row.containerSize === containerSize);
+      return rule ? Number(rule.unitPrice) : null;
+    }
+
+    function makeLine(item, grade, containerType, containerSize, count) {
+      const unitPrice = findPrice(item, grade, containerSize);
+      return {
+        id: makeId("line"),
+        item,
+        grade,
+        containerType,
+        containerSize,
+        count: Number(count || 0),
+        unitPrice,
+        amount: unitPrice === null ? null : Number(count || 0) * unitPrice,
+        pricePending: unitPrice === null
+      };
+    }
+
+    function isPricePending(line) {
+      return line.pricePending || line.unitPrice === null || line.amount === null;
+    }
+
+    function payableAmount(line) {
+      return isPricePending(line) ? 0 : Number(line.amount || 0);
+    }
+
+    function totalAmount(lines) {
+      return lines.reduce((sum, line) => sum + payableAmount(line), 0);
+    }
+
+    function pendingCount(lines) {
+      return lines.filter(isPricePending).length;
+    }
+
     function amountLabel(line) {
       return isPricePending(line) ? "단가 미정 / 정산 확인 필요" : money(line.amount);
     }
@@ -743,126 +535,23 @@
       return isPricePending(line) ? "단가 미정" : money(line.unitPrice);
     }
 
-    function isPricePending(line) {
-      return line?.pricePending || line?.unitPrice === null || line?.amount === null;
-    }
-
-    function payableAmount(line) {
-      return isPricePending(line) ? 0 : Number(line.amount || 0);
-    }
-
-    function priceRuleKey(rule) {
-      return `${rule.item}||${rule.grade}||${rule.containerSize}`;
-    }
-
-    function normalizePriceRule(rule) {
-      return {
-        item: String(rule.item || "").trim(),
-        grade: String(rule.grade || "").trim(),
-        containerSize: String(rule.containerSize || "").trim(),
-        unitPrice: Math.max(0, Number(rule.unitPrice || 0))
-      };
-    }
-
-    function number(value) {
-      return Number(value || 0).toLocaleString("ko-KR");
-    }
-
-    function escapeHtml(value) {
-      return String(value ?? "").replace(/[&<>"']/g, (char) => ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#039;"
-      }[char]));
-    }
-
-    function loadDb() {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw);
-          return {
-            farmers: parsed.farmers || MASTER.farmers,
-            items: parsed.items || MASTER.items,
-            grades: parsed.grades || MASTER.grades,
-            containers: parsed.containers || MASTER.containers,
-            priceRules: parsed.priceRules || MASTER.priceRules,
-            receipts: parsed.receipts || [],
-            lines: parsed.lines || [],
-            settlementStatuses: parsed.settlementStatuses || {}
-          };
-        } catch (error) {
-          console.warn("localStorage parse failed", error);
-        }
-      }
-      return createSeedDb();
-    }
-
-    function createSeedDb() {
+    function todayConfirmations() {
       const today = localDateISO();
-      const yesterdayDate = new Date();
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterday = localDateISO(yesterdayDate);
-      const receipts = [
-        { id: "R001", receiptNo: "A-1001", receivedAt: `${today}T08:35`, farmerId: "F001", status: "사무확인", photoName: "receipt_A-1001.jpg", createdAt: `${today}T08:35`, updatedAt: `${today}T08:35` },
-        { id: "R002", receiptNo: "A-1002", receivedAt: `${today}T09:20`, farmerId: "F002", status: "정산대기", photoName: "", createdAt: `${today}T09:20`, updatedAt: `${today}T09:20` },
-        { id: "R003", receiptNo: "B-0998", receivedAt: `${yesterday}T15:10`, farmerId: "F005", status: "입금대기", photoName: "receipt_B-0998.jpg", createdAt: `${yesterday}T15:10`, updatedAt: `${yesterday}T15:10` }
-      ];
-      const lines = [
-        { id: "L001", receiptId: "R001", item: "사과", grade: "상", containerType: "박스", containerSize: "10kg", count: 12, unitPrice: 56000, amount: 672000 },
-        { id: "L002", receiptId: "R001", item: "사과", grade: "보통", containerType: "박스", containerSize: "10kg", count: 5, unitPrice: 41000, amount: 205000 },
-        { id: "L003", receiptId: "R002", item: "배", grade: "특", containerType: "박스", containerSize: "15kg", count: 8, unitPrice: 72000, amount: 576000 },
-        { id: "L004", receiptId: "R003", item: "포도", grade: "상", containerType: "박스", containerSize: "5kg", count: 10, unitPrice: 43000, amount: 430000 }
-      ];
-      return {
-        farmers: MASTER.farmers,
-        items: MASTER.items,
-        grades: MASTER.grades,
-        containers: MASTER.containers,
-        priceRules: MASTER.priceRules,
-        receipts,
-        lines,
-        settlementStatuses: { F005: "입금대기" }
-      };
+      return db.confirmations.filter((confirmation) => confirmation.receivedAt.slice(0, 10) === today);
     }
 
-    function saveDb() {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    }
-
-    function seedReset() {
-      if (!confirm("샘플 데이터를 초기화할까요? 현재 브라우저 저장 데이터가 바뀝니다.")) return;
-      db = createSeedDb();
-      saveDb();
-      wizard = freshWizard();
-      renderAll();
-      toast("샘플 데이터가 초기화되었습니다.");
-    }
-
-    function freshWizard() {
-      const seq = String((db?.receipts?.length || 0) + 1).padStart(3, "0");
-      return {
-        step: 0,
-        editingId: null,
-        farmerId: "",
-        receiptNo: `R-${localDateISO().replaceAll("-", "")}-${seq}`,
-        photoName: "",
-        lines: [],
-        line: { item: "", grade: "", containerType: "", containerSize: "", count: 1, unitPrice: null, pricePending: false }
-      };
+    function settlementTargets() {
+      return db.confirmations.filter((confirmation) => ["전송완료표시", "정산대기"].includes(confirmation.status));
     }
 
     function renderAll() {
-      document.getElementById("todayLabel").textContent = `${localDateISO()} · 브라우저 저장 프로토타입`;
+      document.getElementById("todayLabel").textContent = `${localDateISO()} · 전화번호 전체 미저장`;
       renderHome();
+      renderForm();
+      renderPreview();
       renderToday();
-      renderAdmin();
+      renderSend();
       renderSettlement();
-      renderMaster();
-      renderAfterSave();
-      if (currentScreen === "wizard") renderWizard();
       setActiveNav();
     }
 
@@ -870,1011 +559,476 @@
       currentScreen = name;
       document.querySelectorAll(".screen").forEach((node) => node.classList.remove("active"));
       document.getElementById(`screen-${name}`).classList.add("active");
-      if (name === "wizard") renderWizard();
+      if (name === "form") renderForm();
+      if (name === "preview") renderPreview();
       setActiveNav();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
     function setActiveNav() {
       document.querySelectorAll("[data-nav]").forEach((button) => {
-        const nav = button.dataset.nav;
-        button.classList.toggle("active", nav === currentScreen);
+        button.classList.toggle("active", button.dataset.nav === currentScreen);
       });
     }
 
-    function startNewReceipt(farmerId = "") {
-      wizard = freshWizard();
-      wizard.farmerId = farmerId;
-      wizard.step = farmerId ? 1 : 0;
-      farmerQuery = "";
-      showScreen("wizard");
-    }
-
-    function startPhotoOnlyReceipt() {
-      wizard = freshWizard();
-      wizard.receiptNo = `PHOTO-${localDateISO().replaceAll("-", "")}-${String(db.receipts.length + 1).padStart(3, "0")}`;
-      wizard.step = 1;
-      showScreen("wizard");
-    }
-
-    function todayReceipts() {
-      const today = localDateISO();
-      return db.receipts.filter((receipt) => receipt.receivedAt.slice(0, 10) === today);
-    }
-
-    function receiptTotal(receiptId) {
-      return db.lines
-        .filter((line) => line.receiptId === receiptId)
-        .reduce((sum, line) => sum + payableAmount(line), 0);
-    }
-
-    function getFarmer(id) {
-      return db.farmers.find((farmer) => farmer.id === id);
+    function startNew() {
+      draft = freshDraft();
+      showScreen("form");
     }
 
     function renderHome() {
-      const todays = todayReceipts();
-      const unchecked = db.receipts.filter((receipt) => receipt.status === "정산대기").length;
-      const photoMissing = db.receipts.filter((receipt) => !receipt.photoName).length;
+      const today = todayConfirmations();
+      const sendWaiting = db.confirmations.filter((row) => ["문자대기", "문자앱열림"].includes(row.status));
+      const settlement = settlementTargets();
       document.getElementById("screen-home").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>현장용 홈</h1>
-            <p class="muted">자주 쓰는 작업만 크게 배치했습니다.</p>
+            <h1>현장 홈</h1>
+            <p class="muted">종이 영수증 없이 확인서 작성 후 문자앱을 여는 흐름입니다.</p>
           </div>
         </div>
         <div class="home-actions">
-          <button class="quick-button" type="button" onclick="startNewReceipt()">
-            <span><strong>입고 등록</strong><span class="muted">농가, 품목, 수량 입력</span></span>
+          <button class="quick-button" type="button" onclick="startNew()">
+            <span><strong>새 입고확인서 작성</strong><span class="muted">농가, 품목, 수량 입력</span></span>
             <span class="count">+</span>
           </button>
-          <button class="quick-button" type="button" onclick="startPhotoOnlyReceipt()">
-            <span><strong>사진만 먼저 찍기</strong><span class="muted">나중에 입력할 영수증 생성</span></span>
-            <span class="count">${photoMissing}</span>
-          </button>
           <button class="quick-button" type="button" onclick="showScreen('today')">
-            <span><strong>오늘 입고 현황</strong><span class="muted">영수증과 상세 줄 확인</span></span>
-            <span class="count">${todays.length}</span>
+            <span><strong>오늘 확인서</strong><span class="muted">작성된 확인서 목록</span></span>
+            <span class="count">${today.length}</span>
           </button>
-          <button class="quick-button" type="button" onclick="showScreen('today')">
-            <span><strong>미확인 입고</strong><span class="muted">정산대기 상태</span></span>
-            <span class="count">${unchecked}</span>
+          <button class="quick-button" type="button" onclick="showScreen('send')">
+            <span><strong>문자 전송 대기</strong><span class="muted">문자대기/문자앱열림</span></span>
+            <span class="count">${sendWaiting.length}</span>
           </button>
-        </div>
-        <div class="panel" style="margin-top: 16px;">
-          <h2>빠른 요약</h2>
-          <ul class="summary-list">
-            <li><span>오늘 입고 금액</span><b>${money(todays.reduce((sum, receipt) => sum + receiptTotal(receipt.id), 0))}</b></li>
-            <li><span>오늘 입고 농가</span><b>${new Set(todays.map((receipt) => receipt.farmerId)).size}곳</b></li>
-            <li><span>입금대기 농가</span><b>${computeSettlements().filter((row) => row.status === "입금대기").length}곳</b></li>
-          </ul>
+          <button class="quick-button" type="button" onclick="showScreen('settlement')">
+            <span><strong>밤 정산 대상</strong><span class="muted">전송완료/정산대기</span></span>
+            <span class="count">${settlement.length}</span>
+          </button>
         </div>
       `;
     }
 
-    function renderWizard() {
-      const farmer = getFarmer(wizard.farmerId);
-      document.getElementById("screen-wizard").innerHTML = `
+    function renderForm() {
+      const line = draft.line;
+      const selectedContainer = line.containerType && line.containerSize ? `${line.containerType} ${line.containerSize}` : "미선택";
+      document.getElementById("screen-form").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>${wizard.editingId ? "입고 수정" : "입고 등록"}</h1>
-            <p class="muted">한 영수증에 여러 상세 줄을 추가할 수 있습니다.</p>
+            <h1>입고확인서 작성</h1>
+            <p class="muted">전화번호 전체는 저장하지 않고 문자앱 열기에만 사용합니다.</p>
           </div>
           <button class="ghost-button" type="button" onclick="showScreen('home')">홈으로</button>
         </div>
-        <div class="steps">${STEPS.map((label, index) => `<div class="step ${index === wizard.step ? "active" : ""}">${index + 1}. ${label}</div>`).join("")}</div>
-        <div class="wizard-layout">
-          <div class="panel">
-            ${renderWizardStep()}
-            <div class="button-row">
-              <button class="ghost-button" type="button" onclick="wizardBack()" ${wizard.step === 0 ? "disabled" : ""}>이전</button>
-              <button class="secondary-button" type="button" onclick="wizardNext()" ${canMoveNext() ? "" : "disabled"}>다음</button>
-              <button class="primary-button" type="button" onclick="saveReceipt()" ${wizard.lines.length ? "" : "disabled"}>${wizard.editingId ? "수정 저장" : "영수증 저장"}</button>
-            </div>
+        <div class="panel">
+          <div class="field">
+            <label for="farmerName">농가명</label>
+            <input id="farmerName" value="${escapeHtml(draft.farmerName)}" oninput="draft.farmerName = this.value" placeholder="예: 김해숙 농가">
           </div>
-          <aside class="panel">
-            <h2>입력 요약</h2>
-            <ul class="summary-list">
-              <li><span>농가</span><b>${farmer ? escapeHtml(farmer.name) : "미선택"}</b></li>
-              <li><span>영수증 NO</span><b>${escapeHtml(wizard.receiptNo)}</b></li>
-              <li><span>사진</span><b>${wizard.photoName ? escapeHtml(wizard.photoName) : "Mock 미첨부"}</b></li>
-              <li><span>상세 줄</span><b>${wizard.lines.length}줄</b></li>
-              <li><span>정산 합계</span><b>${money(wizard.lines.reduce((sum, line) => sum + payableAmount(line), 0))}</b></li>
-              <li><span>단가 미정</span><b>${wizard.lines.filter(isPricePending).length}줄</b></li>
-            </ul>
-            ${renderWizardLines()}
-          </aside>
+          <div class="field">
+            <label for="farmerPhone">전화번호</label>
+            <input id="farmerPhone" inputmode="tel" value="${escapeHtml(draft.phone)}" oninput="draft.phone = this.value" placeholder="문자앱 열기에만 사용">
+            <span class="muted">저장 시 전화번호 뒤 4자리만 남깁니다.</span>
+          </div>
         </div>
-      `;
-      if (wizard.step === 0) {
-        const input = document.getElementById("farmerSearch");
-        if (input) {
-          input.focus();
-          input.setSelectionRange(input.value.length, input.value.length);
-        }
-      }
-    }
-
-    function renderWizardStep() {
-      if (wizard.step === 0) return renderFarmerStep();
-      if (wizard.step === 1) return renderReceiptStep();
-      if (wizard.step === 2) return renderItemStep();
-      if (wizard.step === 3) return renderGradeStep();
-      if (wizard.step === 4) return renderContainerStep();
-      if (wizard.step === 5) return renderCountStep();
-      return renderConfirmStep();
-    }
-
-    function renderFarmerStep() {
-      const recent = recentFarmers();
-      const query = farmerQuery.trim().toLowerCase();
-      const farmers = db.farmers.filter((farmer) => {
-        const last4 = farmer.phone.replace(/\D/g, "").slice(-4);
-        return !query || farmer.name.toLowerCase().includes(query) || last4.includes(query);
-      });
-      return `
-        <h2>농가 선택</h2>
-        <p class="muted">이름 또는 전화번호 뒤 4자리로 찾을 수 있습니다.</p>
-        <div class="field">
-          <label for="farmerSearch">농가 검색</label>
-          <input id="farmerSearch" value="${escapeHtml(farmerQuery)}" oninput="farmerQuery = this.value; renderWizard();" placeholder="예: 김해숙 또는 7788">
+        <div class="panel">
+          <h2>상세 줄 추가</h2>
+          <h3>품목</h3>
+          <div class="option-grid">${ITEMS.map((item) => optionButton("item", item, line.item === item)).join("")}</div>
+          <h3>등급</h3>
+          <div class="option-grid">${GRADES.map((grade) => optionButton("grade", grade, line.grade === grade)).join("")}</div>
+          <h3>용기/사이즈</h3>
+          <div class="option-grid">${CONTAINERS.map((container) => {
+            const selected = line.containerType === container.type && line.containerSize === container.size;
+            return `<button class="option-card ${selected ? "selected" : ""}" type="button" onclick="selectContainer('${container.type}', '${container.size}')"><strong>${container.type} ${container.size}</strong><span>Mock 단가표 기준</span></button>`;
+          }).join("")}</div>
+          <div class="money-box">
+            <span class="muted">선택</span>
+            <b>${escapeHtml(line.item || "품목")} · ${escapeHtml(line.grade || "등급")} · ${escapeHtml(selectedContainer)}</b>
+          </div>
+          ${renderQtyControls()}
+          <div class="button-row">
+            <button class="primary-button" type="button" onclick="addLine()" ${canAddLine() ? "" : "disabled"}>상세 줄 추가</button>
+            <button class="ghost-button" type="button" onclick="clearLine()">현재 줄 초기화</button>
+          </div>
         </div>
-        <h3>최근 농가</h3>
-        <div class="recent-strip">
-          ${recent.map((farmer) => `<button type="button" onclick="selectFarmer('${farmer.id}')">${escapeHtml(farmer.name)} · ${escapeHtml(farmer.phone.slice(-4))}</button>`).join("") || "<span class='muted'>최근 기록 없음</span>"}
-        </div>
-        <div class="option-grid">
-          ${farmers.map((farmer) => `
-            <button class="option-card ${wizard.farmerId === farmer.id ? "selected" : ""}" type="button" onclick="selectFarmer('${farmer.id}')">
-              <strong>${escapeHtml(farmer.name)}</strong>
-              <span>${escapeHtml(farmer.phone)} · ${escapeHtml(farmer.bankName)}</span>
-            </button>
-          `).join("") || "<div class='empty'>검색 결과가 없습니다.</div>"}
+        <div class="panel">
+          <h2>추가된 상세 줄</h2>
+          ${renderLineList(draft.lines, true)}
+          <div class="money-box">
+            <span>정산 반영 합계</span>
+            <b>${money(totalAmount(draft.lines))}</b>
+            <span class="muted">단가 미정 ${pendingCount(draft.lines)}건 제외</span>
+          </div>
+          <div class="button-row">
+            <button class="primary-button" type="button" onclick="goPreview()" ${canPreview() ? "" : "disabled"}>확인서 미리보기</button>
+          </div>
         </div>
       `;
     }
 
-    function recentFarmers() {
-      const ordered = [...db.receipts]
-        .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
-        .map((receipt) => receipt.farmerId);
-      return [...new Set(ordered)].slice(0, 4).map(getFarmer).filter(Boolean);
+    function optionButton(key, value, selected) {
+      return `<button class="option-card ${selected ? "selected" : ""}" type="button" onclick="selectLineValue('${key}', '${value}')"><strong>${escapeHtml(value)}</strong><span>선택</span></button>`;
     }
 
-    function selectFarmer(id) {
-      wizard.farmerId = id;
-      farmerQuery = "";
-      wizard.step = Math.max(wizard.step, 1);
-      renderWizard();
-    }
-
-    function renderReceiptStep() {
-      return `
-        <h2>영수증 정보</h2>
-        <div class="field">
-          <label for="receiptNo">영수증 NO</label>
-          <input id="receiptNo" value="${escapeHtml(wizard.receiptNo)}" oninput="wizard.receiptNo = this.value.trim();" placeholder="영수증 번호">
-        </div>
-        <div class="field">
-          <label for="photoMock">영수증 사진 첨부 Mock</label>
-          <input id="photoMock" type="file" accept="image/*" onchange="wizard.photoName = this.files[0] ? this.files[0].name : ''; renderWizard();">
-          <span class="muted">브라우저 프로토타입이므로 파일명만 저장합니다. 실제 업로드는 백엔드 단계에서 연결합니다.</span>
-        </div>
-        <div class="button-row">
-          <button class="secondary-button" type="button" onclick="savePhotoOnlyReceipt()" ${wizard.photoName ? "" : "disabled"}>사진만 저장하고 나중에 입력</button>
-        </div>
-        ${wizard.photoName ? `<div class="badge done">첨부 파일명: ${escapeHtml(wizard.photoName)}</div>` : `<div class="badge waiting">사진 미첨부</div>`}
-      `;
-    }
-
-    function renderItemStep() {
-      return `
-        <h2>품목 선택</h2>
-        <div class="option-grid">
-          ${db.items.map((item) => `
-            <button class="option-card ${wizard.line.item === item ? "selected" : ""}" type="button" onclick="selectLineValue('item', '${item}', 3)">
-              <strong>${escapeHtml(item)}</strong>
-              <span>카드 선택</span>
-            </button>
-          `).join("")}
-        </div>
-      `;
-    }
-
-    function renderGradeStep() {
-      return `
-        <h2>등급 선택</h2>
-        <div class="option-grid">
-          ${db.grades.map((grade) => `
-            <button class="option-card ${wizard.line.grade === grade ? "selected" : ""}" type="button" onclick="selectLineValue('grade', '${grade}', 4)">
-              <strong>${escapeHtml(grade)}</strong>
-              <span>${grade === "가공" ? "가공용" : "입고 등급"}</span>
-            </button>
-          `).join("")}
-        </div>
-      `;
-    }
-
-    function renderContainerStep() {
-      return `
-        <h2>용기/사이즈 선택</h2>
-        <div class="option-grid">
-          ${db.containers.map((container) => {
-            const selected = wizard.line.containerType === container.type && wizard.line.containerSize === container.size;
-            return `
-              <button class="option-card ${selected ? "selected" : ""}" type="button" onclick="selectContainer('${container.type}', '${container.size}')">
-                <strong>${escapeHtml(container.type)} ${escapeHtml(container.size)}</strong>
-                <span>단가표 기준</span>
-              </button>
-            `;
-          }).join("")}
-        </div>
-      `;
-    }
-
-    function selectLineValue(key, value, nextStep) {
-      wizard.line[key] = value;
-      wizard.step = nextStep;
-      syncUnitPrice();
-      renderWizard();
+    function selectLineValue(key, value) {
+      draft.line[key] = value;
+      renderForm();
     }
 
     function selectContainer(type, size) {
-      wizard.line.containerType = type;
-      wizard.line.containerSize = size;
-      wizard.step = 5;
-      syncUnitPrice();
-      renderWizard();
+      draft.line.containerType = type;
+      draft.line.containerSize = size;
+      renderForm();
     }
 
-    function syncUnitPrice() {
-      const price = findPrice(wizard.line.item, wizard.line.grade, wizard.line.containerSize);
-      wizard.line.pricePending = !price;
-      wizard.line.unitPrice = price || null;
-    }
-
-    function findPrice(item, grade, containerSize) {
-      const rule = db.priceRules.find((priceRule) => priceRule.item === item && priceRule.grade === grade && priceRule.containerSize === containerSize);
-      return rule ? Number(rule.unitPrice) : 0;
-    }
-
-    function applyPriceToLine(line, unitPrice) {
-      line.unitPrice = unitPrice;
-      line.amount = Number(line.count || 0) * unitPrice;
-      line.pricePending = false;
-    }
-
-    function upsertPriceRuleFromLine(line, unitPrice) {
-      upsertPriceRule({
-        item: line.item,
-        grade: line.grade,
-        containerSize: line.containerSize,
-        unitPrice
-      });
-    }
-
-    function upsertPriceRule(rule, skipSave = false) {
-      const normalized = normalizePriceRule(rule);
-      if (!normalized.item || !normalized.grade || !normalized.containerSize || !normalized.unitPrice) {
-        toast("품목, 등급, 사이즈, 단가를 확인하세요.");
-        return false;
-      }
-      const key = priceRuleKey(normalized);
-      const existing = db.priceRules.find((priceRule) => priceRuleKey(priceRule) === key);
-      if (existing) {
-        existing.unitPrice = normalized.unitPrice;
-      } else {
-        db.priceRules.push(normalized);
-      }
-      db.priceRules.sort((a, b) => `${a.item}${a.grade}${a.containerSize}`.localeCompare(`${b.item}${b.grade}${b.containerSize}`, "ko-KR"));
-      if (!skipSave) saveDb();
-      return true;
-    }
-
-    function renderCountStep() {
-      syncUnitPrice();
-      const count = Number(wizard.line.count || 0);
-      const unitPrice = Number(wizard.line.unitPrice || 0);
-      const amount = wizard.line.pricePending ? null : count * unitPrice;
+    function renderQtyControls() {
+      const count = Number(draft.line.count || 0);
       return `
-        <h2>수량과 금액 확인</h2>
-        <div class="panel" style="box-shadow:none;">
-          <b>${escapeHtml(wizard.line.item)} · ${escapeHtml(wizard.line.grade)} · ${escapeHtml(wizard.line.containerType)} ${escapeHtml(wizard.line.containerSize)}</b>
-        </div>
-        <label>개수 조정</label>
+        <h3>수량</h3>
         <div class="qty-control">
-          <button class="qty-button" type="button" onclick="changeCount(-50)">-50</button>
-          <button class="qty-button" type="button" onclick="changeCount(-10)">-10</button>
-          <button class="qty-button" type="button" onclick="changeCount(-5)">-5</button>
-          <button class="qty-button" type="button" onclick="changeCount(-1)">-1</button>
-          <button class="qty-button" type="button" onclick="changeCount(1)">+1</button>
-          <button class="qty-button" type="button" onclick="changeCount(5)">+5</button>
-          <button class="qty-button" type="button" onclick="changeCount(10)">+10</button>
-          <button class="qty-button" type="button" onclick="changeCount(50)">+50</button>
+          ${[-50, -10, -5, -1, 1, 5, 10, 50].map((delta) => `<button class="qty-button" type="button" onclick="changeCount(${delta})">${delta > 0 ? "+" : ""}${delta}</button>`).join("")}
         </div>
-        <label>빠른 수량</label>
+        <h3>빠른 수량</h3>
         <div class="qty-control">
           ${[1, 5, 10, 20, 30, 50].map((value) => `<button class="qty-button" type="button" onclick="setCount(${value})">${value}</button>`).join("")}
         </div>
         <div class="field">
-          <input type="number" min="0" value="${count}" oninput="wizard.line.count = Math.max(0, Number(this.value || 0)); renderWizard();" aria-label="개수 직접 입력">
-        </div>
-        ${wizard.line.pricePending ? `
-          <div class="money-box">
-            <span class="badge pending-price">단가 미정 / 정산 확인 필요</span>
-            <span class="muted">단가표에 없는 조합입니다. 상세 줄은 저장되지만 정산/입금대상 합계에서는 제외됩니다.</span>
-          </div>
-        ` : `
-          <div class="field">
-            <label for="unitPrice">단가 확인</label>
-            <input id="unitPrice" type="number" min="0" value="${unitPrice}" oninput="wizard.line.unitPrice = Math.max(0, Number(this.value || 0)); wizard.line.pricePending = false; renderWizard();">
-          </div>
-        `}
-        <div class="money-box">
-          <span class="muted">정산 반영 금액</span>
-          <b>${amount === null ? "단가 미정 / 정산 확인 필요" : money(amount)}</b>
-        </div>
-        <div class="button-row">
-          <button class="primary-button" type="button" onclick="addLine()" ${canAddLine() ? "" : "disabled"}>상세 줄 추가</button>
-          <button class="secondary-button" type="button" onclick="copyLastLine()" ${lastAddedLine ? "" : "disabled"}>방금 줄 복사</button>
-          <button class="ghost-button" type="button" onclick="clearLine()">현재 줄 초기화</button>
+          <label for="lineCount">개수 직접 입력</label>
+          <input id="lineCount" type="number" min="0" value="${count}" oninput="draft.line.count = Math.max(0, Number(this.value || 0)); renderForm();">
         </div>
       `;
     }
 
     function changeCount(delta) {
-      wizard.line.count = Math.max(0, Number(wizard.line.count || 0) + delta);
-      renderWizard();
+      draft.line.count = Math.max(0, Number(draft.line.count || 0) + delta);
+      renderForm();
     }
 
     function setCount(value) {
-      wizard.line.count = Math.max(0, Number(value || 0));
-      renderWizard();
+      draft.line.count = Math.max(0, Number(value || 0));
+      renderForm();
     }
 
     function canAddLine() {
-      return wizard.line.item && wizard.line.grade && wizard.line.containerType && wizard.line.containerSize && Number(wizard.line.count) > 0;
+      const line = draft.line;
+      return Boolean(line.item && line.grade && line.containerType && line.containerSize && Number(line.count) > 0);
     }
 
     function addLine() {
       if (!canAddLine()) {
-        toast("품목, 등급, 용기, 수량을 확인하세요.");
+        toast("품목, 등급, 용기/사이즈, 1개 이상 수량을 확인하세요.");
         return;
       }
-      const count = Number(wizard.line.count);
-      const unitPrice = wizard.line.pricePending ? null : Number(wizard.line.unitPrice);
-      const line = {
-        id: makeId("line"),
-        item: wizard.line.item,
-        grade: wizard.line.grade,
-        containerType: wizard.line.containerType,
-        containerSize: wizard.line.containerSize,
-        count,
-        unitPrice,
-        amount: wizard.line.pricePending ? null : count * unitPrice,
-        pricePending: Boolean(wizard.line.pricePending)
-      };
-      wizard.lines.push(line);
-      lastAddedLine = { ...line, id: makeId("lineCopy") };
+      draft.lines.push(makeLine(draft.line.item, draft.line.grade, draft.line.containerType, draft.line.containerSize, draft.line.count));
       clearLine(false);
-      wizard.step = 6;
-      renderWizard();
-      toast("상세 줄이 추가되었습니다.");
+      renderForm();
+      toast("상세 줄을 추가했습니다.");
     }
 
     function clearLine(render = true) {
-      wizard.line = { item: "", grade: "", containerType: "", containerSize: "", count: 1, unitPrice: null, pricePending: false };
-      if (render) renderWizard();
+      draft.line = { item: "", grade: "", containerType: "", containerSize: "", count: 1 };
+      if (render) renderForm();
     }
 
-    function copyLastLine() {
-      if (!lastAddedLine) return;
-      wizard.lines.push({ ...lastAddedLine, id: makeId("line") });
-      toast("방금 줄을 복사했습니다.");
-      renderWizard();
+    function removeDraftLine(lineId) {
+      draft.lines = draft.lines.filter((line) => line.id !== lineId);
+      renderForm();
     }
 
-    function renderConfirmStep() {
-      return `
-        <h2>저장 전 확인</h2>
-        ${wizard.lines.length ? renderWizardLines(true) : "<div class='empty'>아직 추가된 상세 줄이 없습니다.</div>"}
-        <div class="button-row">
-          <button class="secondary-button" type="button" onclick="wizard.step = 2; renderWizard();">상세 줄 더 추가</button>
-          <button class="ghost-button" type="button" onclick="copyLastLine()" ${lastAddedLine ? "" : "disabled"}>방금 줄 복사</button>
-        </div>
-      `;
+    function canPreview() {
+      return draft.farmerName.trim() && digitsOnly(draft.phone).length >= 8 && draft.lines.length && draft.lines.every((line) => Number(line.count) > 0);
     }
 
-    function renderWizardLines(includeRemove = false) {
-      if (!wizard.lines.length) return "<div class='empty'>상세 줄을 추가하면 여기에 표시됩니다.</div>";
-      return `
-        <div class="line-list">
-          ${wizard.lines.map((line, index) => `
-            <div class="line-item">
-              <div class="top">
-                <b>${index + 1}. ${escapeHtml(line.item)} ${escapeHtml(line.grade)}</b>
-                <span class="badge ${isPricePending(line) ? "pending-price" : ""}">${amountLabel(line)}</span>
-              </div>
-              <div class="muted">${escapeHtml(line.containerType)} ${escapeHtml(line.containerSize)} · ${number(line.count)}개 · 단가 ${priceLabel(line)}</div>
-              ${isPricePending(line) ? renderWizardLinePriceEditor(line) : ""}
-              ${includeRemove ? `<button class="danger-button" type="button" onclick="removeWizardLine('${line.id}')">이 줄 삭제</button>` : ""}
-            </div>
-          `).join("")}
-        </div>
-      `;
+    function goPreview() {
+      if (!canPreview()) {
+        toast("농가명, 전화번호, 상세 줄을 확인하세요.");
+        return;
+      }
+      draft.receivedAt = nowLocal();
+      showScreen("preview");
     }
 
-    function removeWizardLine(lineId) {
-      wizard.lines = wizard.lines.filter((line) => line.id !== lineId);
-      renderWizard();
-    }
-
-    function renderWizardLinePriceEditor(line) {
-      return `
-        <div class="price-editor">
-          <label for="wizard-price-${line.id}">단가 입력</label>
-          <input id="wizard-price-${line.id}" type="number" min="1" placeholder="단가" aria-label="단가 입력">
-          <div class="button-row">
-            <button class="primary-button" type="button" onclick="applyWizardLinePrice('${line.id}', false)">이 줄만 반영</button>
-            <button class="secondary-button" type="button" onclick="applyWizardLinePrice('${line.id}', true)">단가표에도 저장</button>
+    function renderLineList(lines, removable = false) {
+      if (!lines.length) return "<div class='empty'>상세 줄이 없습니다.</div>";
+      return `<div class="line-list">${lines.map((line, index) => `
+        <div class="line-item">
+          <div class="section-head" style="margin:0;">
+            <h3>${index + 1}. ${escapeHtml(line.item)} ${escapeHtml(line.grade)}</h3>
+            <span class="badge ${isPricePending(line) ? "pending-price" : "done"}">${amountLabel(line)}</span>
           </div>
+          <div class="muted">${escapeHtml(line.containerType)} ${escapeHtml(line.containerSize)} · ${number(line.count)}개 · 단가 ${priceLabel(line)}</div>
+          ${removable ? `<button class="danger-button" type="button" onclick="removeDraftLine('${line.id}')">이 줄 삭제</button>` : ""}
         </div>
-      `;
+      `).join("")}</div>`;
     }
 
-    function applyWizardLinePrice(lineId, saveToRules) {
-      const input = document.getElementById(`wizard-price-${lineId}`);
-      const unitPrice = Math.max(0, Number(input?.value || 0));
-      if (!unitPrice) {
-        toast("단가를 1원 이상 입력하세요.");
-        return;
-      }
-      const line = wizard.lines.find((row) => row.id === lineId);
-      if (!line) return;
-      applyPriceToLine(line, unitPrice);
-      if (saveToRules) upsertPriceRuleFromLine(line, unitPrice);
-      renderAll();
-      toast(saveToRules ? "이 줄과 단가표에 반영했습니다." : "이 줄에만 단가를 반영했습니다.");
-    }
-
-    function canMoveNext() {
-      if (wizard.step === 0) return Boolean(wizard.farmerId);
-      if (wizard.step === 1) return Boolean(wizard.receiptNo.trim());
-      if (wizard.step === 2) return Boolean(wizard.line.item);
-      if (wizard.step === 3) return Boolean(wizard.line.grade);
-      if (wizard.step === 4) return Boolean(wizard.line.containerSize);
-      if (wizard.step === 5) return canAddLine();
-      return false;
-    }
-
-    function wizardNext() {
-      if (wizard.step === 5) {
-        addLine();
-        return;
-      }
-      if (wizard.step < STEPS.length - 1 && canMoveNext()) {
-        wizard.step += 1;
-        renderWizard();
-      }
-    }
-
-    function wizardBack() {
-      wizard.step = Math.max(0, wizard.step - 1);
-      renderWizard();
-    }
-
-    function saveReceipt() {
-      if (!wizard.farmerId || !wizard.receiptNo.trim() || !wizard.lines.length) {
-        toast("농가, 영수증 NO, 상세 줄을 확인하세요.");
-        return;
-      }
-      if (wizard.lines.some((line) => Number(line.count) <= 0)) {
-        toast("수량이 0 이하인 상세 줄은 저장할 수 없습니다.");
-        return;
-      }
+    function buildConfirmationFromDraft() {
       const now = nowLocal();
-      if (wizard.editingId) {
-        const receipt = db.receipts.find((row) => row.id === wizard.editingId);
-        if (!receipt) return;
-        receipt.receiptNo = wizard.receiptNo.trim();
-        receipt.farmerId = wizard.farmerId;
-        receipt.status = receipt.status === "입력필요" ? "정산대기" : receipt.status;
-        receipt.photoName = wizard.photoName;
-        receipt.updatedAt = now;
-        db.lines = db.lines.filter((line) => line.receiptId !== receipt.id);
-        db.lines.push(...wizard.lines.map((line) => ({ ...line, id: makeId("L"), receiptId: receipt.id })));
-        toast("입고가 수정되었습니다.");
-      } else {
-        const id = makeId("R");
-        db.receipts.push({
-          id,
-          receiptNo: wizard.receiptNo.trim(),
-          receivedAt: now,
-          farmerId: wizard.farmerId,
-          status: "정산대기",
-          photoName: wizard.photoName,
-          createdAt: now,
-          updatedAt: now
-        });
-        db.lines.push(...wizard.lines.map((line) => ({ ...line, id: makeId("L"), receiptId: id })));
-        toast("입고가 저장되었습니다.");
-      }
-      saveDb();
-      afterSaveFarmerId = wizard.farmerId;
-      wizard = freshWizard();
-      renderAll();
-      showScreen("afterSave");
-    }
-
-    function savePhotoOnlyReceipt() {
-      if (!wizard.receiptNo.trim() || !wizard.photoName) {
-        toast("영수증 NO와 사진 파일명을 확인하세요.");
-        return;
-      }
-      const now = nowLocal();
-      db.receipts.push({
-        id: makeId("R"),
-        receiptNo: wizard.receiptNo.trim(),
-        receivedAt: now,
-        farmerId: "",
-        status: "입력필요",
-        photoName: wizard.photoName,
+      return {
+        id: draft.id || makeId("confirm"),
+        no: draft.no,
+        farmerName: draft.farmerName.trim(),
+        phoneLast4: last4(draft.phone),
+        receivedAt: draft.receivedAt || now,
+        status: draft.status || "문자대기",
+        lines: draft.lines.map((line) => ({ ...line })),
         createdAt: now,
         updatedAt: now
-      });
-      saveDb();
-      afterSaveFarmerId = "";
-      wizard = freshWizard();
-      renderAll();
-      showScreen("today");
-      toast("사진만 저장했습니다. 오늘 목록에서 입력을 계속하세요.");
+      };
     }
 
-    function renderAfterSave() {
-      const farmer = getFarmer(afterSaveFarmerId);
-      document.getElementById("screen-afterSave").innerHTML = `
+    function saveDraft(status = "문자대기") {
+      const confirmation = buildConfirmationFromDraft();
+      confirmation.status = status;
+      const existing = db.confirmations.findIndex((row) => row.id === confirmation.id);
+      if (existing >= 0) db.confirmations[existing] = confirmation;
+      else db.confirmations.push(confirmation);
+      saveDb();
+      selectedConfirmationId = confirmation.id;
+      draft.id = confirmation.id;
+      draft.status = confirmation.status;
+      renderAll();
+      return confirmation;
+    }
+
+    function renderPreview() {
+      document.getElementById("screen-preview").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>저장 완료</h1>
-            <p class="muted">다음 작업을 바로 선택하세요.</p>
+            <h1>전자 입고확인서 미리보기</h1>
+            <p class="muted">문자 발송 전 최종 확인 화면입니다.</p>
           </div>
+          <button class="ghost-button" type="button" onclick="showScreen('form')">수정</button>
         </div>
+        ${renderPreviewCard(draft, true)}
         <div class="panel">
-          <h2>${farmer ? escapeHtml(farmer.name) : "입고"} 저장됨</h2>
-          <div class="post-save-actions">
-            <button class="quick-button" type="button" onclick="startNewReceipt('${afterSaveFarmerId}')">
-              <span><strong>같은 농가 계속 등록</strong><span class="muted">${farmer ? escapeHtml(farmer.name) : "농가 선택부터 시작"}</span></span>
-              <span class="count">+</span>
-            </button>
-            <button class="quick-button" type="button" onclick="startNewReceipt()">
-              <span><strong>새 농가 입고 등록</strong><span class="muted">농가 선택부터 새로 입력</span></span>
-              <span class="count">+</span>
-            </button>
-            <button class="quick-button" type="button" onclick="showScreen('today')">
-              <span><strong>오늘 입고 목록 보기</strong><span class="muted">묶음 목록과 상세 펼치기</span></span>
-              <span class="count">${todayReceipts().length}</span>
-            </button>
+          <h2>문자 보내기</h2>
+          <p class="muted">웹앱은 실제 전송 성공 여부를 알 수 없습니다. 문자앱에서 보낸 뒤 직접 전송 완료로 표시하세요.</p>
+          <textarea id="messagePreview" readonly>${escapeHtml(buildMessage(draft))}</textarea>
+          <div class="button-row">
+            <a id="smsLink" class="primary-button" href="${smsHref(draft.phone, buildMessage(draft))}" onclick="markSmsOpened()">문자앱 열기</a>
+            <button class="secondary-button" type="button" onclick="copyMessage()">문구 복사</button>
+            <button class="ghost-button" type="button" onclick="markSentDone()">전송 완료로 표시</button>
           </div>
         </div>
       `;
+    }
+
+    function renderPreviewCard(source, isDraft = false) {
+      const lines = source.lines || [];
+      return `
+        <div class="confirm-preview">
+          <div class="preview-no">NO ${escapeHtml(source.no)}</div>
+          <div class="preview-title">${escapeHtml(source.farmerName || "농가명 미입력")} 입고확인서</div>
+          <ul class="summary-list">
+            <li><span>입고일시</span><b>${escapeHtml((source.receivedAt || "").replace("T", " "))}</b></li>
+            <li><span>상태</span><b>${escapeHtml(source.status || "문자대기")}</b></li>
+            <li><span>전화번호 저장</span><b>${isDraft ? "저장 안 함" : "뒤 4자리 " + escapeHtml(source.phoneLast4 || "-")}</b></li>
+            <li><span>정산 반영 합계</span><b>${money(totalAmount(lines))}</b></li>
+            <li><span>단가 미정 건수</span><b>${pendingCount(lines)}건</b></li>
+          </ul>
+          ${renderLineList(lines, false)}
+        </div>
+      `;
+    }
+
+    function buildMessage(source) {
+      const lines = source.lines || [];
+      const lineText = lines.map((line, index) => {
+        return `${index + 1}. ${line.item} ${line.grade} ${line.containerType} ${line.containerSize} ${line.count}개 / ${amountLabel(line)}`;
+      }).join("\n");
+      return `[해바람 전자 입고확인서]\nNO: ${source.no}\n농가명: ${source.farmerName}\n입고일시: ${(source.receivedAt || "").replace("T", " ")}\n${lineText}\n정산 반영 합계: ${money(totalAmount(lines))}\n단가 미정: ${pendingCount(lines)}건\n확인 부탁드립니다.`;
+    }
+
+    function smsHref(phone, message) {
+      const digits = digitsOnly(phone);
+      return `sms:${digits}?body=${encodeURIComponent(message)}`;
+    }
+
+    function markSmsOpened() {
+      const confirmation = saveDraft("문자앱열림");
+      toast(`${confirmation.no} 문자앱열림 상태로 저장했습니다.`);
+    }
+
+    async function copyMessage() {
+      const text = document.getElementById("messagePreview")?.value || buildMessage(draft);
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (error) {
+        const helper = document.createElement("textarea");
+        helper.value = text;
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+      }
+      toast("확인서 문구를 복사했습니다.");
+    }
+
+    function markSentDone() {
+      const confirmation = saveDraft("전송완료표시");
+      toast(`${confirmation.no} 전송완료표시 상태로 저장했습니다.`);
+      showScreen("settlement");
     }
 
     function renderToday() {
-      const receipts = todayReceipts().sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
+      const rows = todayConfirmations().sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
       document.getElementById("screen-today").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>오늘 입고 목록</h1>
-            <p class="muted">영수증 단위로 먼저 보고, 상세 줄은 펼쳐서 확인합니다.</p>
+            <h1>오늘 확인서</h1>
+            <p class="muted">저장된 확인서에는 전화번호 뒤 4자리만 남습니다.</p>
           </div>
-          <button class="primary-button" type="button" onclick="startNewReceipt()">입고 등록</button>
+          <button class="primary-button" type="button" onclick="startNew()">새 확인서</button>
         </div>
-        ${receipts.length ? `
-          <div class="line-list">
-            ${receipts.map((receipt) => renderReceiptCard(receipt)).join("")}
-          </div>
-        ` : "<div class='empty'>오늘 등록된 입고가 없습니다.</div>"}
+        ${rows.length ? `<div class="line-list">${rows.map(renderConfirmationCard).join("")}</div>` : "<div class='empty'>오늘 확인서가 없습니다.</div>"}
       `;
     }
 
-    function renderReceiptCard(receipt) {
-      const farmer = getFarmer(receipt.farmerId);
-      const lines = db.lines.filter((line) => line.receiptId === receipt.id);
-      const pendingCount = lines.filter(isPricePending).length;
+    function renderConfirmationCard(confirmation) {
       return `
-        <div class="receipt-card" id="receipt-card-${receipt.id}">
-          <div class="top">
+        <div class="confirm-card">
+          <div class="section-head" style="margin:0;">
             <div>
-              <h3>${escapeHtml(receipt.receiptNo)}</h3>
-              <div class="muted">${escapeHtml(farmer?.name || "농가 미입력")} · ${escapeHtml(farmer?.phone || "전화번호 미입력")}</div>
+              <h3>${escapeHtml(confirmation.no)}</h3>
+              <div class="muted">${escapeHtml(confirmation.farmerName)} · 전화 뒤 4자리 ${escapeHtml(confirmation.phoneLast4 || "-")}</div>
             </div>
-            <span class="badge ${receipt.status === "입력필요" ? "pending-price" : ""}">${escapeHtml(receipt.status)}</span>
+            <span class="badge ${confirmation.status === "전송완료표시" ? "done" : "waiting"}">${escapeHtml(confirmation.status)}</span>
           </div>
           <ul class="summary-list">
-            <li><span>상세 줄</span><b>${lines.length}줄</b></li>
-            <li><span>정산 반영 금액</span><b>${money(receiptTotal(receipt.id))}</b></li>
-            <li><span>단가 미정</span><b>${pendingCount}줄</b></li>
-            <li><span>사진</span><b>${receipt.photoName ? escapeHtml(receipt.photoName) : "미첨부"}</b></li>
+            <li><span>정산 반영 합계</span><b>${money(totalAmount(confirmation.lines))}</b></li>
+            <li><span>단가 미정</span><b>${pendingCount(confirmation.lines)}건</b></li>
+            <li><span>입고일시</span><b>${escapeHtml(confirmation.receivedAt.replace("T", " "))}</b></li>
           </ul>
           <div class="button-row">
-            <button class="ghost-button" type="button" onclick="toggleReceiptDetails('${receipt.id}')">상세 펼치기</button>
-            <button class="secondary-button" type="button" onclick="editReceipt('${receipt.id}')">${receipt.status === "입력필요" ? "입력 계속" : "수정"}</button>
-            <button class="danger-button" type="button" onclick="deleteReceipt('${receipt.id}')">삭제</button>
-          </div>
-          <div class="field">
-            <label>상태</label>
-            ${statusSelect(receipt.id, receipt.status)}
-          </div>
-          <div class="receipt-details">
-            ${lines.length ? `
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>품목</th>
-                      <th>등급</th>
-                      <th>용기</th>
-                      <th>개수</th>
-                      <th>단가</th>
-                      <th>금액</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${lines.map((line) => `
-                      <tr>
-                        <td>${escapeHtml(line.item)}</td>
-                        <td>${escapeHtml(line.grade)}</td>
-                        <td>${escapeHtml(line.containerType)} ${escapeHtml(line.containerSize)}</td>
-                        <td>${number(line.count)}</td>
-                        <td>${priceLabel(line)}</td>
-                        <td>
-                          ${amountLabel(line)}
-                          ${isPricePending(line) ? renderSavedLinePriceEditor(line) : ""}
-                        </td>
-                      </tr>
-                    `).join("")}
-                  </tbody>
-                </table>
-              </div>
-            ` : "<div class='empty'>사진만 먼저 저장된 영수증입니다. 입력 계속 버튼으로 상세 줄을 추가하세요.</div>"}
+            <button class="ghost-button" type="button" onclick="selectConfirmation('${confirmation.id}')">미리보기</button>
+            <button class="secondary-button" type="button" onclick="updateStatus('${confirmation.id}', '전송완료표시')">전송 완료로 표시</button>
+            <select aria-label="상태 변경" onchange="updateStatus('${confirmation.id}', this.value)">
+              ${STATUS.map((status) => `<option value="${status}" ${status === confirmation.status ? "selected" : ""}>${status}</option>`).join("")}
+            </select>
           </div>
         </div>
       `;
     }
 
-    function toggleReceiptDetails(receiptId) {
-      const node = document.getElementById(`receipt-card-${receiptId}`);
-      if (node) node.classList.toggle("open");
+    function selectConfirmation(id) {
+      selectedConfirmationId = id;
+      showScreen("send");
     }
 
-    function renderSavedLinePriceEditor(line) {
-      return `
-        <div class="price-editor">
-          <label for="saved-price-${line.id}">단가 입력</label>
-          <input id="saved-price-${line.id}" type="number" min="1" placeholder="단가" aria-label="저장 줄 단가 입력">
-          <div class="button-row">
-            <button class="primary-button" type="button" onclick="applySavedLinePrice('${line.id}', false)">이 줄만 반영</button>
-            <button class="secondary-button" type="button" onclick="applySavedLinePrice('${line.id}', true)">단가표에도 저장</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function applySavedLinePrice(lineId, saveToRules) {
-      const input = document.getElementById(`saved-price-${lineId}`);
-      const unitPrice = Math.max(0, Number(input?.value || 0));
-      if (!unitPrice) {
-        toast("단가를 1원 이상 입력하세요.");
-        return;
-      }
-      const line = db.lines.find((row) => row.id === lineId);
-      if (!line) return;
-      applyPriceToLine(line, unitPrice);
-      if (saveToRules) upsertPriceRuleFromLine(line, unitPrice);
+    function updateStatus(id, status) {
+      const row = db.confirmations.find((confirmation) => confirmation.id === id);
+      if (!row) return;
+      row.status = status;
+      row.updatedAt = nowLocal();
       saveDb();
       renderAll();
-      toast(saveToRules ? "이 줄과 단가표에 반영했습니다." : "이 줄에만 단가를 반영했습니다.");
+      toast("상태를 변경했습니다.");
     }
 
-    function statusSelect(receiptId, status) {
-      return `
-        <select aria-label="입고 상태" onchange="updateReceiptStatus('${receiptId}', this.value)">
-          ${STATUS.map((item) => `<option value="${item}" ${item === status ? "selected" : ""}>${item}</option>`).join("")}
-        </select>
-      `;
-    }
-
-    function updateReceiptStatus(receiptId, status) {
-      const receipt = db.receipts.find((row) => row.id === receiptId);
-      if (!receipt) return;
-      receipt.status = status;
-      receipt.updatedAt = nowLocal();
-      saveDb();
-      renderAll();
-      toast("상태가 변경되었습니다.");
-    }
-
-    function editReceipt(receiptId) {
-      const receipt = db.receipts.find((row) => row.id === receiptId);
-      if (!receipt) return;
-      wizard = freshWizard();
-      wizard.editingId = receipt.id;
-      wizard.step = 0;
-      wizard.farmerId = receipt.farmerId;
-      wizard.receiptNo = receipt.receiptNo;
-      wizard.photoName = receipt.photoName;
-      wizard.lines = db.lines
-        .filter((line) => line.receiptId === receipt.id)
-        .map((line) => ({ ...line, id: makeId("line") }));
-      showScreen("wizard");
-    }
-
-    function deleteReceipt(receiptId) {
-      if (!confirm("이 영수증과 상세 줄을 삭제할까요?")) return;
-      db.receipts = db.receipts.filter((receipt) => receipt.id !== receiptId);
-      db.lines = db.lines.filter((line) => line.receiptId !== receiptId);
-      saveDb();
-      renderAll();
-      toast("영수증이 삭제되었습니다.");
-    }
-
-    function renderAdmin() {
-      const todays = todayReceipts();
-      const todayFarmerCount = new Set(todays.map((receipt) => receipt.farmerId).filter(Boolean)).size;
-      const todayLineRows = todays.flatMap((receipt) => db.lines.filter((line) => line.receiptId === receipt.id));
-      const totalAmount = todayLineRows.reduce((sum, line) => sum + payableAmount(line), 0);
-      const pricePendingCount = todayLineRows.filter(isPricePending).length;
-      const unchecked = db.receipts.filter((receipt) => receipt.status === "정산대기").length;
-      const settlements = computeSettlements();
-      const waitingFarmers = settlements.filter((settlement) => settlement.status === "입금대기").length;
-      document.getElementById("screen-admin").innerHTML = `
+    function renderSend() {
+      const rows = db.confirmations.filter((row) => ["문자대기", "문자앱열림"].includes(row.status));
+      const selected = db.confirmations.find((row) => row.id === selectedConfirmationId) || rows[0];
+      document.getElementById("screen-send").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>관리자 대시보드</h1>
-            <p class="muted">PC 폭에서는 집계 카드가 넓게 배치됩니다.</p>
+            <h1>문자 전송 대기</h1>
+            <p class="muted">저장된 확인서는 전화번호 전체가 없어 문자앱 링크를 다시 만들 수 없습니다. 새 작성 직후 화면에서 발송하세요.</p>
           </div>
-          <button class="ghost-button" type="button" onclick="showScreen('master')">마스터 보기</button>
         </div>
-        <div class="stats-grid">
-          <div class="stat primary"><span class="label">오늘 입고 건수</span><span class="value">${todays.length}</span></div>
-          <div class="stat blue"><span class="label">오늘 입고 농가 수</span><span class="value">${todayFarmerCount}</span></div>
-          <div class="stat accent"><span class="label">정산 예정 금액</span><span class="value">${money(totalAmount)}</span></div>
-          <div class="stat primary"><span class="label">미확인 영수증 수</span><span class="value">${unchecked}</span></div>
-          <div class="stat blue"><span class="label">입금 대기 농가 수</span><span class="value">${waitingFarmers}</span></div>
-          <div class="stat accent"><span class="label">단가 미정 건수</span><span class="value">${pricePendingCount}</span></div>
-          <div class="stat primary"><span class="label">오늘 상세 줄 수</span><span class="value">${todayLineRows.length}</span></div>
-        </div>
-        <div class="panel">
-          <h2>품목별 수량</h2>
-          ${renderGroupedList(groupCount(todayLineRows, "item"))}
-        </div>
-        <div class="panel">
-          <h2>등급별 수량</h2>
-          ${renderGroupedList(groupCount(todayLineRows, "grade"))}
-        </div>
+        ${selected ? renderPreviewCard(selected, false) : "<div class='empty'>문자 전송 대기 확인서가 없습니다.</div>"}
+        ${selected ? `
+          <div class="panel">
+            <h2>저장된 문구</h2>
+            <textarea readonly>${escapeHtml(buildMessage(selected))}</textarea>
+            <div class="button-row">
+              <button class="secondary-button" type="button" onclick="copyStoredMessage('${selected.id}')">문구 복사</button>
+              <button class="primary-button" type="button" onclick="updateStatus('${selected.id}', '전송완료표시')">전송 완료로 표시</button>
+            </div>
+          </div>
+        ` : ""}
+        ${rows.length ? `<div class="line-list">${rows.map(renderConfirmationCard).join("")}</div>` : ""}
       `;
     }
 
-    function groupCount(lines, key) {
-      return lines.reduce((acc, line) => {
-        acc[line[key]] = (acc[line[key]] || 0) + Number(line.count || 0);
-        return acc;
-      }, {});
+    async function copyStoredMessage(id) {
+      const row = db.confirmations.find((confirmation) => confirmation.id === id);
+      if (!row) return;
+      try {
+        await navigator.clipboard.writeText(buildMessage(row));
+      } catch (error) {
+        const helper = document.createElement("textarea");
+        helper.value = buildMessage(row);
+        document.body.appendChild(helper);
+        helper.select();
+        document.execCommand("copy");
+        helper.remove();
+      }
+      toast("저장된 확인서 문구를 복사했습니다.");
     }
 
-    function renderGroupedList(grouped) {
-      const entries = Object.entries(grouped);
-      if (!entries.length) return "<div class='empty'>집계할 데이터가 없습니다.</div>";
-      return `<ul class="summary-list">${entries.map(([key, value]) => `<li><span>${escapeHtml(key)}</span><b>${number(value)}개</b></li>`).join("")}</ul>`;
-    }
-
-    function computeSettlements() {
-      const rows = new Map();
-      db.receipts.forEach((receipt) => {
-        if (!receipt.farmerId) return;
-        const receiptLines = db.lines.filter((line) => line.receiptId === receipt.id);
-        const total = receiptTotal(receipt.id);
-        if (!rows.has(receipt.farmerId)) {
-          rows.set(receipt.farmerId, { farmerId: receipt.farmerId, totalAmount: 0, receiptCount: 0, pendingPriceCount: 0, status: db.settlementStatuses[receipt.farmerId] || "정산대기" });
+    function groupSettlement() {
+      const map = new Map();
+      settlementTargets().forEach((confirmation) => {
+        if (!map.has(confirmation.farmerName)) {
+          map.set(confirmation.farmerName, { farmerName: confirmation.farmerName, count: 0, total: 0, pending: 0, nos: [] });
         }
-        const row = rows.get(receipt.farmerId);
-        row.totalAmount += total;
-        row.receiptCount += 1;
-        row.pendingPriceCount += receiptLines.filter(isPricePending).length;
+        const row = map.get(confirmation.farmerName);
+        row.count += 1;
+        row.total += totalAmount(confirmation.lines);
+        row.pending += pendingCount(confirmation.lines);
+        row.nos.push(confirmation.no);
       });
-      return [...rows.values()].sort((a, b) => b.totalAmount - a.totalAmount);
+      return [...map.values()].sort((a, b) => b.total - a.total);
     }
 
     function renderSettlement() {
-      const rows = computeSettlements();
+      const rows = groupSettlement();
       document.getElementById("screen-settlement").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>정산/입금 대상</h1>
-            <p class="muted">농가별 지급액을 영수증 상세 줄에서 자동 집계합니다.</p>
+            <h1>밤 정산 대상</h1>
+            <p class="muted">전송완료표시 또는 정산대기 상태만 농가명 기준으로 집계합니다.</p>
           </div>
-          <div class="button-row" style="margin-top:0;">
-            <button class="primary-button" type="button" onclick="downloadPaymentCsv(false)">입금대상 CSV</button>
-            <button class="secondary-button" type="button" onclick="downloadPaymentCsv(true)">이체파일 Mock</button>
-          </div>
+          <button class="primary-button" type="button" onclick="downloadSettlementCsv()">정산 대상 CSV 예시</button>
         </div>
-        ${rows.length ? `
-          <div class="line-list">
-            ${rows.map((row) => {
-              const farmer = getFarmer(row.farmerId);
-              return `
-                <div class="settlement-row">
-                  <div class="top">
-                    <div>
-                      <h3>${escapeHtml(farmer?.name || row.farmerId)}</h3>
-                      <div class="muted">${escapeHtml(farmer?.phone || "")} · ${escapeHtml(farmer?.bankName || "")} ${escapeHtml(farmer?.accountNo || "")}</div>
-                    </div>
-                    <span class="badge ${row.status === "입금완료" ? "done" : "waiting"}">${escapeHtml(row.status)}</span>
-                  </div>
-                  <ul class="summary-list">
-                    <li><span>지급액</span><b>${money(row.totalAmount)}</b></li>
-                    <li><span>영수증 수</span><b>${row.receiptCount}건</b></li>
-                    <li><span>단가 미정</span><b>${row.pendingPriceCount}줄 제외</b></li>
-                    <li><span>메모</span><b>${escapeHtml(farmer?.memo || "-")}</b></li>
-                  </ul>
-                  <div class="field">
-                    <label>정산 상태</label>
-                    <select onchange="updateSettlementStatus('${row.farmerId}', this.value)">
-                      ${STATUS.map((status) => `<option value="${status}" ${status === row.status ? "selected" : ""}>${status}</option>`).join("")}
-                    </select>
-                  </div>
-                </div>
-              `;
-            }).join("")}
+        ${rows.length ? `<div class="line-list">${rows.map((row) => `
+          <div class="confirm-card">
+            <h3>${escapeHtml(row.farmerName)}</h3>
+            <ul class="summary-list">
+              <li><span>확인서 수</span><b>${row.count}건</b></li>
+              <li><span>정산 반영 합계</span><b>${money(row.total)}</b></li>
+              <li><span>단가 미정</span><b>${row.pending}건</b></li>
+              <li><span>확인서 NO</span><b>${escapeHtml(row.nos.join(", "))}</b></li>
+            </ul>
           </div>
-        ` : "<div class='empty'>정산할 입고 데이터가 없습니다.</div>"}
+        `).join("")}</div>` : "<div class='empty'>밤 정산 대상이 없습니다.</div>"}
       `;
     }
 
-    function updateSettlementStatus(farmerId, status) {
-      db.settlementStatuses[farmerId] = status;
-      saveDb();
-      renderAll();
-      toast("정산 상태가 변경되었습니다.");
-    }
-
-    function downloadPaymentCsv(isMockTransfer) {
-      const targetRows = computeSettlements().filter((row) => row.status === "입금대기" && row.totalAmount > 0);
-      if (!targetRows.length) {
-        toast("입금대기 상태이면서 지급액이 있는 농가가 없습니다.");
+    function downloadSettlementCsv() {
+      const rows = groupSettlement();
+      if (!rows.length) {
+        toast("정산 대상이 없습니다.");
         return;
       }
-      const header = ["은행명", "계좌번호", "예금주", "지급액", "농가명", "메모"];
-      const lines = targetRows.map((row) => {
-        const farmer = getFarmer(row.farmerId);
-        const memo = isMockTransfer ? `MOCK 이체파일 검토용 - ${farmer?.memo || ""}` : farmer?.memo || "";
-        return [farmer?.bankName, farmer?.accountNo, farmer?.accountHolder, row.totalAmount, farmer?.name, memo].map(csvEscape).join(",");
-      });
-      const blob = new Blob(["\ufeff" + [header.join(","), ...lines].join("\n")], { type: "text/csv;charset=utf-8" });
+      const header = ["농가명", "확인서수", "정산반영합계", "단가미정건수", "확인서NO", "메모"];
+      const body = rows.map((row) => [row.farmerName, row.count, row.total, row.pending, row.nos.join(" "), "전자입고확인서 정산 예시"].map(csvEscape).join(","));
+      const blob = new Blob(["\ufeff" + [header.join(","), ...body].join("\n")], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = isMockTransfer ? `payment-transfer-mock-${localDateISO()}.csv` : `payment-targets-${localDateISO()}.csv`;
+      link.download = `confirm-settlement-${localDateISO()}.csv`;
       document.body.appendChild(link);
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      toast(isMockTransfer ? "Mock 이체파일 CSV가 생성되었습니다." : "입금대상 CSV가 생성되었습니다.");
+      toast("정산 대상 CSV 예시를 생성했습니다.");
     }
 
     function csvEscape(value) {
       const text = String(value ?? "");
       return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
-    }
-
-    function renderMaster() {
-      document.getElementById("screen-master").innerHTML = `
-        <div class="section-head">
-          <div>
-            <h1>마스터 데이터 Mock</h1>
-            <p class="muted">브라우저 프로토타입에 내장된 기준 데이터입니다.</p>
-          </div>
-          <button class="ghost-button" type="button" onclick="showScreen('admin')">관리로</button>
-        </div>
-        <div class="master-grid">
-          <div class="panel">
-            <h2>농가 목록</h2>
-            <ul class="summary-list">${db.farmers.map((farmer) => `<li><span>${escapeHtml(farmer.name)}</span><b>${escapeHtml(farmer.phone.slice(-4))}</b></li>`).join("")}</ul>
-          </div>
-          <div class="panel">
-            <h2>품목 목록</h2>
-            <ul class="summary-list">${db.items.map((item) => `<li><span>${escapeHtml(item)}</span><b>사용</b></li>`).join("")}</ul>
-          </div>
-          <div class="panel">
-            <h2>등급 목록</h2>
-            <ul class="summary-list">${db.grades.map((grade) => `<li><span>${escapeHtml(grade)}</span><b>사용</b></li>`).join("")}</ul>
-          </div>
-          <div class="panel">
-            <h2>용기/사이즈</h2>
-            <ul class="summary-list">${db.containers.map((container) => `<li><span>${escapeHtml(container.type)}</span><b>${escapeHtml(container.size)}</b></li>`).join("")}</ul>
-          </div>
-          <div class="panel">
-            <h2>단가표</h2>
-            <p class="muted">단가표 변경은 새 입고 기본 단가에만 적용됩니다. 기존 입고 금액은 자동 변경하지 않습니다.</p>
-            ${renderPriceRuleCreateForm()}
-            <div class="line-list">
-              ${db.priceRules.map((rule, index) => renderPriceRuleRow(rule, index)).join("")}
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
-    function optionList(values, selected) {
-      return values.map((value) => `<option value="${escapeHtml(value)}" ${value === selected ? "selected" : ""}>${escapeHtml(value)}</option>`).join("");
-    }
-
-    function renderPriceRuleCreateForm() {
-      return `
-        <div class="price-editor">
-          <h3>새 단가 추가</h3>
-          <div class="price-grid">
-            <label>품목<select id="newRuleItem">${optionList(db.items, db.items[0])}</select></label>
-            <label>등급<select id="newRuleGrade">${optionList(db.grades, db.grades[0])}</select></label>
-            <label>용기/사이즈<select id="newRuleSize">${optionList(db.containers.map((container) => container.size), db.containers[0]?.size || "")}</select></label>
-            <label>단가<input id="newRulePrice" type="number" min="1" placeholder="단가"></label>
-          </div>
-          <button class="primary-button" type="button" onclick="createPriceRule()">새 PriceRule 추가</button>
-        </div>
-      `;
-    }
-
-    function renderPriceRuleRow(rule, index) {
-      return `
-        <div class="line-item">
-          <div class="price-grid">
-            <label>품목<select id="rule${index}Item">${optionList(db.items, rule.item)}</select></label>
-            <label>등급<select id="rule${index}Grade">${optionList(db.grades, rule.grade)}</select></label>
-            <label>용기/사이즈<select id="rule${index}Size">${optionList(db.containers.map((container) => container.size), rule.containerSize)}</select></label>
-            <label>단가<input id="rule${index}Price" type="number" min="1" value="${Number(rule.unitPrice || 0)}"></label>
-          </div>
-          <div class="button-row">
-            <button class="secondary-button" type="button" onclick="savePriceRule(${index})">수정 저장</button>
-            <button class="danger-button" type="button" onclick="deletePriceRule(${index})">삭제</button>
-          </div>
-        </div>
-      `;
-    }
-
-    function readPriceRuleForm(prefix) {
-      return normalizePriceRule({
-        item: document.getElementById(`${prefix}Item`)?.value,
-        grade: document.getElementById(`${prefix}Grade`)?.value,
-        containerSize: document.getElementById(`${prefix}Size`)?.value,
-        unitPrice: document.getElementById(`${prefix}Price`)?.value
-      });
-    }
-
-    function createPriceRule() {
-      if (!upsertPriceRule(readPriceRuleForm("newRule"))) return;
-      renderAll();
-      toast("새 단가를 저장했습니다.");
-    }
-
-    function savePriceRule(index) {
-      const nextRule = readPriceRuleForm(`rule${index}`);
-      if (!nextRule.item || !nextRule.grade || !nextRule.containerSize || !nextRule.unitPrice) {
-        toast("품목, 등급, 사이즈, 단가를 확인하세요.");
-        return;
-      }
-      db.priceRules.splice(index, 1);
-      upsertPriceRule(nextRule, true);
-      saveDb();
-      renderAll();
-      toast("단가표를 수정했습니다. 기존 입고 금액은 자동 변경되지 않습니다.");
-    }
-
-    function deletePriceRule(index) {
-      if (!confirm("이 PriceRule을 삭제할까요? 기존 입고 금액은 변경되지 않습니다.")) return;
-      db.priceRules.splice(index, 1);
-      saveDb();
-      renderAll();
-      toast("PriceRule을 삭제했습니다.");
     }
 
     function toast(message) {
