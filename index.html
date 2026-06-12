@@ -65,7 +65,7 @@
 
     .nav {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 8px;
     }
 
@@ -80,7 +80,7 @@
       background: #edf1ed;
       color: #263238;
       padding: 12px 8px;
-      font-size: 16px;
+      font-size: 15px;
     }
 
     .nav button.active {
@@ -355,7 +355,7 @@
     }
 
     @media (min-width: 1020px) {
-      .home-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .home-actions { grid-template-columns: repeat(6, minmax(0, 1fr)); }
       .quick-button { min-height: 132px; align-items: flex-start; flex-direction: column; }
     }
   </style>
@@ -367,13 +367,14 @@
         <div class="brand-row">
           <div class="brand">
             <strong>전자 입고확인서</strong>
-            <span id="todayLabel">문자 · 입고 내역 · 현황 · 송금 프로토타입</span>
+            <span id="todayLabel">문자 · 단가 · 입고 내역 · 현황 · 송금 프로토타입</span>
           </div>
           <button class="ghost-button" type="button" onclick="resetSample()">샘플 초기화</button>
         </div>
         <nav class="nav" aria-label="주요 화면">
           <button type="button" data-nav="home" class="active" onclick="showScreen('home')">홈</button>
           <button type="button" data-nav="send" onclick="showScreen('send')">문자</button>
+          <button type="button" data-nav="price" onclick="showScreen('price')">단가 관리</button>
           <button type="button" data-nav="today" onclick="showScreen('today')">입고 확인 내역</button>
           <button type="button" data-nav="settlement" onclick="showScreen('settlement')">일자별 현황</button>
           <button type="button" data-nav="payment" onclick="showScreen('payment')">송금</button>
@@ -385,6 +386,7 @@
       <section id="screen-home" class="screen active"></section>
       <section id="screen-form" class="screen"></section>
       <section id="screen-preview" class="screen"></section>
+      <section id="screen-price" class="screen"></section>
       <section id="screen-today" class="screen"></section>
       <section id="screen-send" class="screen"></section>
       <section id="screen-settlement" class="screen"></section>
@@ -395,28 +397,18 @@
 
   <script>
     const STORAGE_KEY = "haebaramConfirmAppV1";
+    const PRICE_STORAGE_KEY = "haebaramConfirmPriceRules";
     const SMS_STATUS = ["문자대기", "문자앱열림", "전송완료", "재전송필요"];
     const PAYMENT_STATUS = ["송금대기", "송금완료"];
     const LEGACY_STATUS = ["문자대기", "문자앱열림", "전송완료표시", "재전송필요", "정산대기", "정산확정", "입금완료"];
     const ITEMS = ["사과", "배", "복숭아", "포도", "감귤"];
-    const GRADES = ["특", "상", "보통", "가공"];
+    const GRADES = ["A", "B", "C", "소"];
     const CONTAINERS = [
-      { type: "박스", size: "5kg" },
-      { type: "박스", size: "10kg" },
-      { type: "박스", size: "15kg" },
-      { type: "통", size: "12입" },
-      { type: "망", size: "20kg" }
+      { label: "20kg 상자", type: "상자", size: "20kg", kg: 20 },
+      { label: "기타", type: "기타", size: "", kg: null }
     ];
-    const PRICE_RULES = [
-      ["사과", "특", "5kg", 36000], ["사과", "상", "5kg", 30000], ["사과", "보통", "5kg", 22000],
-      ["사과", "특", "10kg", 68000], ["사과", "상", "10kg", 56000], ["사과", "보통", "10kg", 41000],
-      ["배", "특", "15kg", 72000], ["배", "상", "15kg", 62000], ["배", "보통", "15kg", 48000],
-      ["복숭아", "특", "5kg", 42000], ["복숭아", "상", "5kg", 35000], ["복숭아", "보통", "5kg", 26000],
-      ["포도", "특", "5kg", 52000], ["포도", "상", "5kg", 43000], ["포도", "보통", "5kg", 32000],
-      ["감귤", "특", "10kg", 34000], ["감귤", "상", "10kg", 28000], ["감귤", "보통", "10kg", 21000],
-      ["감귤", "상", "20kg", 52000]
-    ].map(([item, grade, containerSize, unitPrice]) => ({ item, grade, containerSize, unitPrice }));
 
+    let priceRules = loadPriceRules();
     let db = loadDb();
     let currentScreen = "home";
     let draft = freshDraft();
@@ -475,6 +467,38 @@
       return digits.slice(-4);
     }
 
+    function normalizePriceRules(raw = {}) {
+      return GRADES.reduce((rules, grade) => {
+        const value = raw?.[grade];
+        const numberValue = value === "" || value === null || value === undefined ? null : Number(value);
+        rules[grade] = Number.isFinite(numberValue) && numberValue > 0 ? Math.round(numberValue) : null;
+        return rules;
+      }, {});
+    }
+
+    function loadPriceRules() {
+      try {
+        return normalizePriceRules(JSON.parse(localStorage.getItem(PRICE_STORAGE_KEY) || "{}"));
+      } catch (error) {
+        console.warn("confirm app price rule parse failed", error);
+        return normalizePriceRules();
+      }
+    }
+
+    function savePriceRules() {
+      priceRules = normalizePriceRules(priceRules);
+      localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(priceRules));
+    }
+
+    function priceInputValue(grade) {
+      return priceRules[grade] ? String(priceRules[grade]) : "";
+    }
+
+    function parseKgValue(value) {
+      const numberValue = Number(String(value || "").replace(/[^\d.]/g, ""));
+      return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : 0;
+    }
+
     function normalizeStatusFields(row) {
       const legacyStatus = row?.status || row?.smsStatus || "문자대기";
       let smsStatus = SMS_STATUS.includes(row?.smsStatus) ? row.smsStatus : "";
@@ -493,6 +517,7 @@
     function normalizeLine(line) {
       const count = Number(line?.count || 0);
       const unitPrice = line?.unitPrice === null || line?.unitPrice === undefined ? null : Number(line.unitPrice);
+      const customKg = line?.customKg === null || line?.customKg === undefined ? parseKgValue(line?.containerSize) : parseKgValue(line.customKg);
       const pricePending = Boolean(line?.pricePending || unitPrice === null || line?.amount === null);
       return {
         id: line?.id || makeId("line"),
@@ -500,6 +525,9 @@
         grade: line?.grade || "",
         containerType: line?.containerType || "",
         containerSize: line?.containerSize || "",
+        customKg,
+        baseUnitKg: Number(line?.baseUnitKg || 20),
+        baseUnitPrice: line?.baseUnitPrice === null || line?.baseUnitPrice === undefined ? unitPrice : Number(line.baseUnitPrice),
         count,
         unitPrice,
         amount: pricePending ? null : Number(line?.amount ?? count * unitPrice),
@@ -564,8 +592,8 @@
             paymentCompletedAt: "",
             status: "전송완료",
             lines: [
-              makeLine("사과", "상", "박스", "10kg", 5),
-              makeLine("사과", "특", "박스", "15kg", 2)
+              makeLine("사과", "A", "상자", "20kg", 5, 20),
+              makeLine("사과", "B", "상자", "20kg", 2, 20)
             ],
             createdAt: `${localDateISO()}T08:30`,
             updatedAt: `${localDateISO()}T08:40`
@@ -600,7 +628,8 @@
         originalLineSignature: "",
         isRevision: false,
         createdAt: "",
-        line: { item: "", grade: "", containerType: "", containerSize: "", count: 1 },
+        autoFillNotice: "",
+        line: { item: "", grade: "", containerType: "", containerSize: "", customKg: 0, count: 1 },
         lines: []
       };
     }
@@ -615,23 +644,35 @@
       toast("샘플 데이터가 초기화되었습니다.");
     }
 
-    function findPrice(item, grade, containerSize) {
-      const rule = PRICE_RULES.find((row) => row.item === item && row.grade === grade && row.containerSize === containerSize);
-      return rule ? Number(rule.unitPrice) : null;
+    function findPrice(grade) {
+      const unitPrice = priceRules[grade];
+      return Number.isFinite(unitPrice) && unitPrice > 0 ? Number(unitPrice) : null;
     }
 
-    function makeLine(item, grade, containerType, containerSize, count) {
-      const unitPrice = findPrice(item, grade, containerSize);
+    function lineKg(containerType, containerSize, customKg) {
+      if (containerType === "상자" && containerSize === "20kg") return 20;
+      if (containerType === "기타") return parseKgValue(customKg || containerSize);
+      return parseKgValue(customKg || containerSize);
+    }
+
+    function makeLine(item, grade, containerType, containerSize, count, customKg = 0) {
+      const unitPrice = findPrice(grade);
+      const kg = lineKg(containerType, containerSize, customKg);
+      const hasCalculableKg = containerType !== "기타" || kg > 0;
+      const amount = unitPrice === null || !hasCalculableKg ? null : Math.round(unitPrice * (kg / 20) * Number(count || 0));
       return {
         id: makeId("line"),
         item,
         grade,
         containerType,
-        containerSize,
+        containerSize: containerType === "기타" ? (kg > 0 ? `${kg}kg` : "kg 미입력") : containerSize,
+        customKg: kg,
+        baseUnitKg: 20,
+        baseUnitPrice: unitPrice,
         count: Number(count || 0),
         unitPrice,
-        amount: unitPrice === null ? null : Number(count || 0) * unitPrice,
-        pricePending: unitPrice === null
+        amount,
+        pricePending: amount === null
       };
     }
 
@@ -657,6 +698,12 @@
 
     function priceLabel(line) {
       return isPricePending(line) ? "단가 미정" : money(line.unitPrice);
+    }
+
+    function containerDisplay(line) {
+      if (line.containerType === "기타") return `기타 ${line.customKg > 0 ? line.customKg + "kg" : "kg 미입력"}`;
+      if (line.containerType === "상자" && line.containerSize === "20kg") return "20kg 상자";
+      return `${line.containerType || "용기"} ${line.containerSize || ""}`.trim();
     }
 
     function todayConfirmations() {
@@ -707,7 +754,7 @@
     }
 
     function containerSummary(row) {
-      const containers = [...new Set((row.lines || []).map((line) => `${line.containerType || "용기"} ${line.containerSize || "무게/사이즈"}`))];
+      const containers = [...new Set((row.lines || []).map(containerDisplay))];
       return containers.join(", ") || "용기 없음";
     }
 
@@ -721,6 +768,9 @@
         grade: line.grade,
         containerType: line.containerType,
         containerSize: line.containerSize,
+        customKg: Number(line.customKg || 0),
+        baseUnitKg: Number(line.baseUnitKg || 20),
+        baseUnitPrice: line.baseUnitPrice,
         count: Number(line.count || 0),
         unitPrice: line.unitPrice,
         amount: line.amount,
@@ -741,6 +791,7 @@
       renderHome();
       renderForm();
       renderPreview();
+      renderPrice();
       renderToday();
       renderSend();
       renderSettlement();
@@ -793,7 +844,8 @@
         originalLineSignature: lineSignature(confirmation.lines),
         isRevision: Boolean(confirmation.isRevision),
         createdAt: confirmation.createdAt,
-        line: { item: "", grade: "", containerType: "", containerSize: "", count: 1 },
+        autoFillNotice: "",
+        line: { item: "", grade: "", containerType: "", containerSize: "", customKg: 0, count: 1 },
         lines: confirmation.lines.map((line) => ({ ...line }))
       };
       resendPhone = "";
@@ -825,6 +877,10 @@
             <span><strong>문자 전송 대기</strong><span class="muted">문자대기/문자앱열림/재전송필요</span></span>
             <span class="count">${sendWaiting.length}</span>
           </button>
+          <button class="quick-button" type="button" onclick="showScreen('price')">
+            <span><strong>단가 관리</strong><span class="muted">A/B/C/소 20kg 기준</span></span>
+            <span class="count">₩</span>
+          </button>
           <button class="quick-button" type="button" onclick="showScreen('settlement')">
             <span><strong>일자별 현황</strong><span class="muted">과일, 용기, 농가별 집계</span></span>
             <span class="count">${today.length}</span>
@@ -837,9 +893,88 @@
       `;
     }
 
+    function renderPrice() {
+      document.getElementById("screen-price").innerHTML = `
+        <div class="section-head">
+          <div>
+            <h1>단가 관리</h1>
+            <p class="muted">A, B, C, 소 등급별 20kg 기준 단가를 이 브라우저 localStorage에 저장합니다.</p>
+          </div>
+          <button class="ghost-button" type="button" onclick="showScreen('home')">홈으로</button>
+        </div>
+        <div class="panel">
+          <h2>20kg 기준 단가</h2>
+          <p class="muted">실운영 서버 단가표가 아니라 검토용 브라우저 저장 단가표입니다. 빈 값이면 해당 등급은 단가미정으로 처리됩니다.</p>
+          ${GRADES.map((grade) => `
+            <div class="field">
+              <label for="price-${grade}">${grade} 등급 20kg 기준 단가</label>
+              <input id="price-${grade}" type="number" min="0" inputmode="numeric" value="${escapeHtml(priceInputValue(grade))}" oninput="priceRules['${grade}'] = this.value" placeholder="예: 50000">
+            </div>
+          `).join("")}
+          <div class="button-row">
+            <button class="primary-button" type="button" onclick="savePriceRulesAndRender()">단가 저장</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function savePriceRulesAndRender() {
+      savePriceRules();
+      renderAll();
+      showScreen("price");
+      toast("20kg 기준 단가를 저장했습니다.");
+    }
+
+    function historyRows() {
+      return [...db.confirmations].sort((a, b) => {
+        const aTime = a.updatedAt || a.createdAt || a.receivedAt || "";
+        const bTime = b.updatedAt || b.createdAt || b.receivedAt || "";
+        return bTime.localeCompare(aTime);
+      });
+    }
+
+    function uniqueHistoryOptions(key) {
+      const seen = new Set();
+      return historyRows().map((row) => key === "phone" ? row.phone : row[key]).filter((value) => {
+        const text = String(value || "").trim();
+        if (!text || seen.has(text)) return false;
+        seen.add(text);
+        return true;
+      });
+    }
+
+    function findHistoryMatch(key, value) {
+      const text = String(value || "").trim();
+      if (!text) return null;
+      return historyRows().find((row) => {
+        if (key === "phone") return digitsOnly(row.phone) === digitsOnly(text);
+        return String(row[key] || "").trim() === text;
+      }) || null;
+    }
+
+    function applyHistoryMatch(match, source) {
+      if (!match) return false;
+      if (source !== "farmerName") draft.farmerName = match.farmerName || draft.farmerName;
+      if (source !== "phone") draft.phone = match.phone || draft.phone;
+      if (source !== "accountNo") draft.accountNo = match.accountNo || draft.accountNo;
+      draft.bankName = match.bankName || draft.bankName;
+      draft.accountHolder = match.accountHolder || draft.accountHolder;
+      draft.autoFillNotice = "과거 이력에서 전화번호와 계좌정보를 불러왔습니다.";
+      renderForm();
+      return true;
+    }
+
+    function handleHistoryInput(key, value) {
+      draft[key] = value;
+      const match = findHistoryMatch(key, value);
+      if (match) applyHistoryMatch(match, key);
+    }
+
     function renderForm() {
       const line = draft.line;
-      const selectedContainer = line.containerType && line.containerSize ? `${line.containerType} ${line.containerSize}` : "미선택";
+      const selectedContainer = line.containerType === "기타"
+        ? `기타 ${line.customKg > 0 ? line.customKg + "kg" : "kg 미입력"}`
+        : (line.containerType === "상자" && line.containerSize === "20kg" ? "20kg 상자" : (line.containerType && line.containerSize ? `${line.containerType} ${line.containerSize}` : "미선택"));
       document.getElementById("screen-form").innerHTML = `
         <div class="section-head">
           <div>
@@ -851,11 +986,13 @@
         <div class="panel">
           <div class="field">
             <label for="farmerName">농가명</label>
-            <input id="farmerName" value="${escapeHtml(draft.farmerName)}" oninput="draft.farmerName = this.value" placeholder="예: 김해숙 농가">
+            <input id="farmerName" list="farmerNameOptions" value="${escapeHtml(draft.farmerName)}" oninput="handleHistoryInput('farmerName', this.value)" placeholder="예: 김해숙 농가">
+            <datalist id="farmerNameOptions">${uniqueHistoryOptions("farmerName").map((value) => `<option value="${escapeHtml(value)}"></option>`).join("")}</datalist>
           </div>
           <div class="field">
             <label for="farmerPhone">전화번호</label>
-            <input id="farmerPhone" inputmode="tel" value="${escapeHtml(draft.phone)}" oninput="draft.phone = this.value" placeholder="예: 010-0000-0000">
+            <input id="farmerPhone" list="farmerPhoneOptions" inputmode="tel" value="${escapeHtml(draft.phone)}" oninput="handleHistoryInput('phone', this.value)" placeholder="예: 010-0000-0000">
+            <datalist id="farmerPhoneOptions">${uniqueHistoryOptions("phone").map((value) => `<option value="${escapeHtml(value)}"></option>`).join("")}</datalist>
             <span class="muted">${draft.phone ? "전체 번호를 저장합니다." : phoneDisplay(draft)}</span>
           </div>
           <div class="field">
@@ -864,12 +1001,14 @@
           </div>
           <div class="field">
             <label for="accountNo">계좌번호</label>
-            <input id="accountNo" inputmode="numeric" value="${escapeHtml(draft.accountNo)}" oninput="draft.accountNo = this.value" placeholder="검토용 계좌번호">
+            <input id="accountNo" list="accountNoOptions" inputmode="numeric" value="${escapeHtml(draft.accountNo)}" oninput="handleHistoryInput('accountNo', this.value)" placeholder="검토용 계좌번호">
+            <datalist id="accountNoOptions">${uniqueHistoryOptions("accountNo").map((value) => `<option value="${escapeHtml(value)}"></option>`).join("")}</datalist>
           </div>
           <div class="field">
             <label for="accountHolder">예금주</label>
             <input id="accountHolder" value="${escapeHtml(draft.accountHolder)}" oninput="draft.accountHolder = this.value" placeholder="예: 김해숙">
           </div>
+          ${draft.autoFillNotice ? `<p class="muted">${escapeHtml(draft.autoFillNotice)}</p>` : ""}
           <p class="muted">현재는 브라우저 localStorage 기반 검토용입니다. 실운영 개인정보/계좌정보 저장에는 백엔드, 로그인, 권한, 백업이 필요합니다.</p>
         </div>
         ${draft.id && sentLikeStatus(draft.originalStatus) ? `
@@ -884,14 +1023,22 @@
           <div class="option-grid">${ITEMS.map((item) => optionButton("item", item, line.item === item)).join("")}</div>
           <h3>등급</h3>
           <div class="option-grid">${GRADES.map((grade) => optionButton("grade", grade, line.grade === grade)).join("")}</div>
-          <h3>용기/사이즈</h3>
+          <h3>용기/무게</h3>
           <div class="option-grid">${CONTAINERS.map((container) => {
-            const selected = line.containerType === container.type && line.containerSize === container.size;
-            return `<button class="option-card ${selected ? "selected" : ""}" type="button" onclick="selectContainer('${container.type}', '${container.size}')"><strong>${container.type} ${container.size}</strong><span>Mock 단가표 기준</span></button>`;
+            const selected = line.containerType === container.type && (container.type === "기타" || line.containerSize === container.size);
+            return `<button class="option-card ${selected ? "selected" : ""}" type="button" onclick="selectContainer('${container.type}', '${container.size}', ${container.kg === null ? 0 : container.kg})"><strong>${container.label}</strong><span>20kg 기준 단가 적용</span></button>`;
           }).join("")}</div>
+          ${line.containerType === "기타" ? `
+            <div class="field">
+              <label for="customKg">기타 kg</label>
+              <input id="customKg" type="number" min="0" step="0.1" inputmode="decimal" value="${line.customKg || ""}" oninput="draft.line.customKg = Number(this.value || 0); draft.line.containerSize = draft.line.customKg > 0 ? draft.line.customKg + 'kg' : ''; renderForm();" placeholder="예: 12">
+              <span class="muted">0보다 큰 kg이면 20kg 기준 단가에 비례해 계산합니다. 비어 있거나 0이면 단가미정으로 저장됩니다.</span>
+            </div>
+          ` : ""}
           <div class="money-box">
             <span class="muted">선택</span>
             <b>${escapeHtml(line.item || "품목")} · ${escapeHtml(line.grade || "등급")} · ${escapeHtml(selectedContainer)}</b>
+            <span class="muted">${lineEstimateLabel()}</span>
           </div>
           ${renderQtyControls()}
           <div class="button-row">
@@ -923,10 +1070,20 @@
       renderForm();
     }
 
-    function selectContainer(type, size) {
+    function selectContainer(type, size, kg = 0) {
       draft.line.containerType = type;
-      draft.line.containerSize = size;
+      draft.line.containerSize = type === "기타" ? "" : size;
+      draft.line.customKg = type === "기타" ? 0 : kg;
       renderForm();
+    }
+
+    function lineEstimateLabel() {
+      if (!draft.line.grade) return "등급을 선택하면 20kg 기준 단가를 확인합니다.";
+      const unitPrice = findPrice(draft.line.grade);
+      if (unitPrice === null) return `${draft.line.grade} 등급 20kg 기준 단가 미정`;
+      if (!draft.line.containerType) return `20kg 기준 단가 ${money(unitPrice)} · 용기를 선택하세요.`;
+      const preview = makeLine(draft.line.item || "", draft.line.grade, draft.line.containerType, draft.line.containerSize, draft.line.count, draft.line.customKg);
+      return isPricePending(preview) ? `20kg 기준 단가 ${money(unitPrice)} · kg 확인 필요` : `20kg 기준 단가 ${money(unitPrice)} · 예상 금액 ${money(preview.amount)}`;
     }
 
     function renderQtyControls() {
@@ -959,22 +1116,22 @@
 
     function canAddLine() {
       const line = draft.line;
-      return Boolean(line.item && line.grade && line.containerType && line.containerSize && Number(line.count) > 0);
+      return Boolean(line.item && line.grade && line.containerType && Number(line.count) > 0);
     }
 
     function addLine() {
       if (!canAddLine()) {
-        toast("품목, 등급, 용기/사이즈, 1개 이상 수량을 확인하세요.");
+        toast("품목, 등급, 용기, 1개 이상 수량을 확인하세요.");
         return;
       }
-      draft.lines.push(makeLine(draft.line.item, draft.line.grade, draft.line.containerType, draft.line.containerSize, draft.line.count));
+      draft.lines.push(makeLine(draft.line.item, draft.line.grade, draft.line.containerType, draft.line.containerSize, draft.line.count, draft.line.customKg));
       clearLine(false);
       renderForm();
       toast("상세 줄을 추가했습니다.");
     }
 
     function clearLine(render = true) {
-      draft.line = { item: "", grade: "", containerType: "", containerSize: "", count: 1 };
+      draft.line = { item: "", grade: "", containerType: "", containerSize: "", customKg: 0, count: 1 };
       if (render) renderForm();
     }
 
@@ -1012,7 +1169,7 @@
             <h3>${index + 1}. ${escapeHtml(line.item)} ${escapeHtml(line.grade)}</h3>
             <span class="badge ${isPricePending(line) ? "pending-price" : "done"}">${amountLabel(line)}</span>
           </div>
-          <div class="muted">${escapeHtml(line.containerType)} ${escapeHtml(line.containerSize)} · ${number(line.count)}개 · 단가 ${priceLabel(line)}</div>
+          <div class="muted">${escapeHtml(containerDisplay(line))} · ${number(line.count)}개 · 20kg 기준 단가 ${priceLabel(line)}</div>
           ${removable ? `<button class="danger-button" type="button" onclick="removeDraftLine('${line.id}')">이 줄 삭제</button>` : ""}
         </div>
       `).join("")}</div>`;
@@ -1043,6 +1200,19 @@
     }
 
     function saveDraft(status = "문자대기") {
+      const isRevisionAdvance =
+        draftNeedsResend() &&
+        draft.isRevision &&
+        ((draft.smsStatus === "재전송필요" && status === "문자앱열림") ||
+          (draft.smsStatus === "문자앱열림" && status === "전송완료"));
+
+      if (draftNeedsResend() && status !== "재전송필요" && !isRevisionAdvance) {
+        status = "재전송필요";
+        draft.smsStatus = "재전송필요";
+        draft.status = "재전송필요";
+        draft.isRevision = true;
+      }
+
       const confirmation = buildConfirmationFromDraft();
       confirmation.smsStatus = status;
       confirmation.status = status;
@@ -1108,7 +1278,7 @@
     function buildMessage(source) {
       const lines = source.lines || [];
       const lineText = lines.map((line, index) => {
-        return `${index + 1}. ${line.item} ${line.grade} ${line.containerType} ${line.containerSize} ${line.count}개 / ${amountLabel(line)}`;
+        return `${index + 1}. ${line.item} ${line.grade} ${containerDisplay(line)} ${line.count}개 / ${amountLabel(line)}`;
       }).join("\n");
       const title = isRevisionMessage(source) ? "[해바람 입고확인 수정본]" : "[해바람 입고확인]";
       const detailLabel = isRevisionMessage(source) ? "수정된 상세 줄" : "상세 줄";
@@ -1409,7 +1579,7 @@
       const rows = confirmationsByDate(dailyDateFilter).sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
       const summary = dailySummary(rows);
       const itemRows = aggregateRows(rows, (confirmation, line) => line.item || "품목 미입력");
-      const containerRows = aggregateRows(rows, (confirmation, line) => `${line.containerType || "용기"} ${line.containerSize || "무게/사이즈"}`);
+      const containerRows = aggregateRows(rows, (confirmation, line) => containerDisplay(line));
       const farmerRows = farmerAggregateRows(rows);
       document.getElementById("screen-settlement").innerHTML = `
         <div class="section-head">
@@ -1516,7 +1686,7 @@
 
     function rowMatchesPaymentFilters(row) {
       const itemOk = !paymentFilters.item || (row.lines || []).some((line) => line.item === paymentFilters.item);
-      const containerOk = !paymentFilters.container || (row.lines || []).some((line) => `${line.containerType || "용기"} ${line.containerSize || "무게/사이즈"}` === paymentFilters.container);
+      const containerOk = !paymentFilters.container || (row.lines || []).some((line) => containerDisplay(line) === paymentFilters.container);
       const farmerOk = !paymentFilters.farmer || row.farmerName === paymentFilters.farmer;
       return itemOk && containerOk && farmerOk;
     }
@@ -1541,7 +1711,7 @@
       const rows = paymentDateRows();
       return {
         items: uniqueSorted(rows.flatMap((row) => (row.lines || []).map((line) => line.item))),
-        containers: uniqueSorted(rows.flatMap((row) => (row.lines || []).map((line) => `${line.containerType || "용기"} ${line.containerSize || "무게/사이즈"}`))),
+        containers: uniqueSorted(rows.flatMap((row) => (row.lines || []).map(containerDisplay))),
         farmers: uniqueSorted(rows.map((row) => row.farmerName))
       };
     }
@@ -1777,7 +1947,7 @@
       const selectedCount = rows.filter((row) => selectedPaymentIds.has(row.id) && row.paymentStatus !== "송금완료").length;
       const excluded = paymentExclusions();
       const itemRows = paymentAggregateRows(rows, (confirmation, line) => line.item || "품목 미입력");
-      const containerRows = paymentAggregateRows(rows, (confirmation, line) => `${line.containerType || "용기"} ${line.containerSize || "무게/사이즈"}`);
+      const containerRows = paymentAggregateRows(rows, (confirmation, line) => containerDisplay(line));
       const farmerRows = paymentAggregateRows(rows, (confirmation) => confirmation.farmerName || "농가명 미입력");
       document.getElementById("screen-payment").innerHTML = `
         <div class="section-head">
