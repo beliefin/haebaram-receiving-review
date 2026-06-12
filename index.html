@@ -282,6 +282,21 @@
     .preview-no { font-size: 16px; color: var(--muted); font-weight: 800; }
     .preview-title { font-size: 30px; font-weight: 900; margin: 8px 0 14px; }
 
+    .recipient-box {
+      display: grid;
+      gap: 6px;
+      margin: 12px 0;
+      padding: 16px;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius);
+      background: #ecfdf3;
+    }
+
+    .recipient-box b {
+      font-size: 30px;
+      letter-spacing: 0;
+    }
+
     .table-wrap {
       overflow-x: auto;
       background: #fff;
@@ -364,7 +379,7 @@
 
   <script>
     const STORAGE_KEY = "haebaramConfirmAppV1";
-    const STATUS = ["문자대기", "문자앱열림", "전송완료표시", "정산대기", "정산확정", "입금완료"];
+    const STATUS = ["문자대기", "문자앱열림", "전송완료표시", "재전송필요", "정산대기", "정산확정", "입금완료"];
     const ITEMS = ["사과", "배", "복숭아", "포도", "감귤"];
     const GRADES = ["특", "상", "보통", "가공"];
     const CONTAINERS = [
@@ -388,6 +403,7 @@
     let currentScreen = "home";
     let draft = freshDraft();
     let selectedConfirmationId = "";
+    let resendPhone = "";
 
     function localDateISO(date = new Date()) {
       const year = date.getFullYear();
@@ -435,11 +451,27 @@
       if (!raw) return createSeedDb();
       try {
         const parsed = JSON.parse(raw);
-        return { confirmations: parsed.confirmations || [] };
+        return { confirmations: (parsed.confirmations || []).map(normalizeConfirmation) };
       } catch (error) {
         console.warn("confirm app storage parse failed", error);
         return createSeedDb();
       }
+    }
+
+    function normalizeConfirmation(row) {
+      const status = STATUS.includes(row?.status) ? row.status : "문자대기";
+      return {
+        id: row?.id || makeId("confirm"),
+        no: row?.no || `EC-${localDateISO().replaceAll("-", "")}-LEGACY`,
+        farmerName: row?.farmerName || "농가명 미입력",
+        phoneLast4: row?.phoneLast4 || "",
+        receivedAt: row?.receivedAt || row?.createdAt || nowLocal(),
+        status,
+        lines: Array.isArray(row?.lines) ? row.lines : [],
+        isRevision: Boolean(row?.isRevision || status === "재전송필요"),
+        createdAt: row?.createdAt || nowLocal(),
+        updatedAt: row?.updatedAt || nowLocal()
+      };
     }
 
     function createSeedDb() {
@@ -476,6 +508,11 @@
         phone: "",
         receivedAt: nowLocal(),
         status: "문자대기",
+        phoneLast4: "",
+        originalStatus: "",
+        originalLineSignature: "",
+        isRevision: false,
+        createdAt: "",
         line: { item: "", grade: "", containerType: "", containerSize: "", count: 1 },
         lines: []
       };
@@ -544,6 +581,31 @@
       return db.confirmations.filter((confirmation) => ["전송완료표시", "정산대기"].includes(confirmation.status));
     }
 
+    function sentLikeStatus(status) {
+      return ["전송완료표시", "정산대기", "정산확정", "입금완료"].includes(status);
+    }
+
+    function lineSignature(lines) {
+      return JSON.stringify((lines || []).map((line) => ({
+        item: line.item,
+        grade: line.grade,
+        containerType: line.containerType,
+        containerSize: line.containerSize,
+        count: Number(line.count || 0),
+        unitPrice: line.unitPrice,
+        amount: line.amount,
+        pricePending: Boolean(line.pricePending)
+      })));
+    }
+
+    function draftNeedsResend() {
+      return Boolean(draft.id && sentLikeStatus(draft.originalStatus) && lineSignature(draft.lines) !== draft.originalLineSignature);
+    }
+
+    function isRevisionMessage(source) {
+      return Boolean(source.isRevision || source.status === "재전송필요");
+    }
+
     function renderAll() {
       document.getElementById("todayLabel").textContent = `${localDateISO()} · 전화번호 전체 미저장`;
       renderHome();
@@ -573,12 +635,36 @@
 
     function startNew() {
       draft = freshDraft();
+      resendPhone = "";
+      showScreen("form");
+    }
+
+    function editConfirmation(id) {
+      const confirmation = db.confirmations.find((row) => row.id === id);
+      if (!confirmation) return;
+      draft = {
+        id: confirmation.id,
+        no: confirmation.no,
+        farmerName: confirmation.farmerName,
+        phone: "",
+        phoneLast4: confirmation.phoneLast4 || "",
+        receivedAt: confirmation.receivedAt,
+        status: confirmation.status,
+        originalStatus: confirmation.status,
+        originalLineSignature: lineSignature(confirmation.lines),
+        isRevision: Boolean(confirmation.isRevision),
+        createdAt: confirmation.createdAt,
+        line: { item: "", grade: "", containerType: "", containerSize: "", count: 1 },
+        lines: confirmation.lines.map((line) => ({ ...line }))
+      };
+      resendPhone = "";
+      toast("수정 후 다시 문자를 보내야 할 수 있습니다.");
       showScreen("form");
     }
 
     function renderHome() {
       const today = todayConfirmations();
-      const sendWaiting = db.confirmations.filter((row) => ["문자대기", "문자앱열림"].includes(row.status));
+      const sendWaiting = db.confirmations.filter((row) => ["문자대기", "문자앱열림", "재전송필요"].includes(row.status));
       const settlement = settlementTargets();
       document.getElementById("screen-home").innerHTML = `
         <div class="section-head">
@@ -597,7 +683,7 @@
             <span class="count">${today.length}</span>
           </button>
           <button class="quick-button" type="button" onclick="showScreen('send')">
-            <span><strong>문자 전송 대기</strong><span class="muted">문자대기/문자앱열림</span></span>
+            <span><strong>문자 전송 대기</strong><span class="muted">문자대기/문자앱열림/재전송필요</span></span>
             <span class="count">${sendWaiting.length}</span>
           </button>
           <button class="quick-button" type="button" onclick="showScreen('settlement')">
@@ -614,7 +700,7 @@
       document.getElementById("screen-form").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>입고확인서 작성</h1>
+            <h1>${draft.id ? "입고확인서 수정" : "입고확인서 작성"}</h1>
             <p class="muted">전화번호 전체는 저장하지 않고 문자앱 열기에만 사용합니다.</p>
           </div>
           <button class="ghost-button" type="button" onclick="showScreen('home')">홈으로</button>
@@ -627,9 +713,15 @@
           <div class="field">
             <label for="farmerPhone">전화번호</label>
             <input id="farmerPhone" inputmode="tel" value="${escapeHtml(draft.phone)}" oninput="draft.phone = this.value" placeholder="문자앱 열기에만 사용">
-            <span class="muted">저장 시 전화번호 뒤 4자리만 남깁니다.</span>
+            <span class="muted">저장 시 전화번호 뒤 4자리만 남깁니다.${draft.phoneLast4 ? ` 기존 저장 뒤 4자리: ${escapeHtml(draft.phoneLast4)}` : ""}</span>
           </div>
         </div>
+        ${draft.id && sentLikeStatus(draft.originalStatus) ? `
+          <div class="panel">
+            <span class="badge pending-price">전송 완료 후 수정 중</span>
+            <p class="muted">품목, 등급, 용기, 수량, 단가 관련 상세 줄이 바뀌면 이 확인서는 재전송필요 상태가 되고 밤 정산 합계에서 제외됩니다.</p>
+          </div>
+        ` : ""}
         <div class="panel">
           <h2>상세 줄 추가</h2>
           <h3>품목</h3>
@@ -745,6 +837,12 @@
         return;
       }
       draft.receivedAt = nowLocal();
+      if (draftNeedsResend()) {
+        draft.status = "재전송필요";
+        draft.isRevision = true;
+        saveDraft("재전송필요");
+        toast("수정 후 다시 문자를 보내야 합니다.");
+      }
       showScreen("preview");
     }
 
@@ -768,11 +866,12 @@
         id: draft.id || makeId("confirm"),
         no: draft.no,
         farmerName: draft.farmerName.trim(),
-        phoneLast4: last4(draft.phone),
+        phoneLast4: last4(draft.phone) || draft.phoneLast4 || "",
         receivedAt: draft.receivedAt || now,
         status: draft.status || "문자대기",
         lines: draft.lines.map((line) => ({ ...line })),
-        createdAt: now,
+        isRevision: Boolean(draft.isRevision),
+        createdAt: draft.createdAt || now,
         updatedAt: now
       };
     }
@@ -803,12 +902,16 @@
         ${renderPreviewCard(draft, true)}
         <div class="panel">
           <h2>문자 보내기</h2>
-          <p class="muted">웹앱은 실제 전송 성공 여부를 알 수 없습니다. 문자앱에서 보낸 뒤 직접 전송 완료로 표시하세요.</p>
+          <div class="recipient-box">
+            <span class="muted">수신 전화번호</span>
+            <b>${escapeHtml(formatPhoneForDisplay(draft.phone))}</b>
+          </div>
+          <p class="muted">문자앱이 열리면 실제 전송 버튼은 사용자가 직접 눌러야 합니다. 웹앱은 발송 성공 여부를 알 수 없습니다.</p>
           <textarea id="messagePreview" readonly>${escapeHtml(buildMessage(draft))}</textarea>
           <div class="button-row">
-            <a id="smsLink" class="primary-button" href="${smsHref(draft.phone, buildMessage(draft))}" onclick="markSmsOpened()">문자앱 열기</a>
+            <a id="smsLink" class="primary-button" href="${smsHref(draft.phone, buildMessage(draft))}" onclick="markSmsOpened()">${isRevisionMessage(draft) ? "수정본 문자앱 열기" : "문자앱 열기"}</a>
             <button class="secondary-button" type="button" onclick="copyMessage()">문구 복사</button>
-            <button class="ghost-button" type="button" onclick="markSentDone()">전송 완료로 표시</button>
+            ${draft.status === "재전송필요" ? `<span class="muted">수정본 문자앱을 연 뒤 완료 표시가 가능합니다.</span>` : `<button class="ghost-button" type="button" onclick="markSentDone()">문자 전송 후 완료로 표시</button>`}
           </div>
         </div>
       `;
@@ -837,12 +940,21 @@
       const lineText = lines.map((line, index) => {
         return `${index + 1}. ${line.item} ${line.grade} ${line.containerType} ${line.containerSize} ${line.count}개 / ${amountLabel(line)}`;
       }).join("\n");
-      return `[해바람 전자 입고확인서]\nNO: ${source.no}\n농가명: ${source.farmerName}\n입고일시: ${(source.receivedAt || "").replace("T", " ")}\n${lineText}\n정산 반영 합계: ${money(totalAmount(lines))}\n단가 미정: ${pendingCount(lines)}건\n확인 부탁드립니다.`;
+      const title = isRevisionMessage(source) ? "[해바람 입고확인 수정본]" : "[해바람 입고확인]";
+      const detailLabel = isRevisionMessage(source) ? "수정된 상세 줄" : "상세 줄";
+      return `${title}\n입고번호: ${source.no}\n농가명: ${source.farmerName}\n${detailLabel}:\n${lineText}\n정산 반영 합계: ${money(totalAmount(lines))}\n단가 미정 건수: ${pendingCount(lines)}건\n내용이 다르면 연락 바랍니다.`;
     }
 
     function smsHref(phone, message) {
       const digits = digitsOnly(phone);
       return `sms:${digits}?body=${encodeURIComponent(message)}`;
+    }
+
+    function formatPhoneForDisplay(phone) {
+      const digits = digitsOnly(phone);
+      if (digits.length === 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+      if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+      return phone || "전화번호 미입력";
     }
 
     function markSmsOpened() {
@@ -893,7 +1005,7 @@
               <h3>${escapeHtml(confirmation.no)}</h3>
               <div class="muted">${escapeHtml(confirmation.farmerName)} · 전화 뒤 4자리 ${escapeHtml(confirmation.phoneLast4 || "-")}</div>
             </div>
-            <span class="badge ${confirmation.status === "전송완료표시" ? "done" : "waiting"}">${escapeHtml(confirmation.status)}</span>
+            <span class="badge ${confirmation.status === "재전송필요" ? "pending-price" : confirmation.status === "전송완료표시" ? "done" : "waiting"}">${escapeHtml(confirmation.status)}</span>
           </div>
           <ul class="summary-list">
             <li><span>정산 반영 합계</span><b>${money(totalAmount(confirmation.lines))}</b></li>
@@ -902,10 +1014,16 @@
           </ul>
           <div class="button-row">
             <button class="ghost-button" type="button" onclick="selectConfirmation('${confirmation.id}')">미리보기</button>
-            <button class="secondary-button" type="button" onclick="updateStatus('${confirmation.id}', '전송완료표시')">전송 완료로 표시</button>
-            <select aria-label="상태 변경" onchange="updateStatus('${confirmation.id}', this.value)">
-              ${STATUS.map((status) => `<option value="${status}" ${status === confirmation.status ? "selected" : ""}>${status}</option>`).join("")}
-            </select>
+            <button class="ghost-button" type="button" onclick="editConfirmation('${confirmation.id}')">수정</button>
+            ${confirmation.status === "재전송필요" ? `<button class="primary-button" type="button" onclick="selectConfirmation('${confirmation.id}')">수정본 문자 보내기</button>` : ""}
+            ${confirmation.status === "재전송필요" ? `
+              <span class="muted">수정본 문자앱을 연 뒤 완료 표시가 가능합니다.</span>
+            ` : `
+              <button class="secondary-button" type="button" onclick="updateStatus('${confirmation.id}', '전송완료표시')">문자 전송 후 완료로 표시</button>
+              <select aria-label="상태 변경" onchange="updateStatus('${confirmation.id}', this.value)">
+                ${STATUS.map((status) => `<option value="${status}" ${status === confirmation.status ? "selected" : ""}>${status}</option>`).join("")}
+              </select>
+            `}
           </div>
         </div>
       `;
@@ -927,28 +1045,49 @@
     }
 
     function renderSend() {
-      const rows = db.confirmations.filter((row) => ["문자대기", "문자앱열림"].includes(row.status));
+      const rows = db.confirmations.filter((row) => ["문자대기", "문자앱열림", "재전송필요"].includes(row.status));
       const selected = db.confirmations.find((row) => row.id === selectedConfirmationId) || rows[0];
+      const resendDigits = digitsOnly(resendPhone);
       document.getElementById("screen-send").innerHTML = `
         <div class="section-head">
           <div>
             <h1>문자 전송 대기</h1>
-            <p class="muted">저장된 확인서는 전화번호 전체가 없어 문자앱 링크를 다시 만들 수 없습니다. 새 작성 직후 화면에서 발송하세요.</p>
+            <p class="muted">저장된 확인서는 전화번호 전체가 없습니다. 재전송할 때는 전체 전화번호를 다시 입력해야 합니다.</p>
           </div>
         </div>
         ${selected ? renderPreviewCard(selected, false) : "<div class='empty'>문자 전송 대기 확인서가 없습니다.</div>"}
         ${selected ? `
           <div class="panel">
-            <h2>저장된 문구</h2>
+            <h2>${selected.status === "재전송필요" ? "수정본 문자 보내기" : "저장된 문구"}</h2>
+            ${selected.status === "재전송필요" ? `
+              <div class="field">
+                <label for="resendPhone">재전송 전화번호</label>
+                <input id="resendPhone" inputmode="tel" value="${escapeHtml(resendPhone)}" oninput="resendPhone = this.value; renderSend();" placeholder="전체 전화번호 다시 입력">
+                <span class="muted">입력한 번호는 저장하지 않고 문자앱 링크 생성에만 사용합니다.</span>
+              </div>
+            ` : ""}
             <textarea readonly>${escapeHtml(buildMessage(selected))}</textarea>
             <div class="button-row">
               <button class="secondary-button" type="button" onclick="copyStoredMessage('${selected.id}')">문구 복사</button>
-              <button class="primary-button" type="button" onclick="updateStatus('${selected.id}', '전송완료표시')">전송 완료로 표시</button>
+              ${selected.status === "재전송필요" ? `
+                <a class="primary-button" href="${resendDigits.length >= 8 ? smsHref(resendPhone, buildMessage(selected)) : "#"}" onclick="return markStoredSmsOpened('${selected.id}')">수정본 문자앱 열기</a>
+                <span class="muted">수정본 문자앱을 연 뒤 완료 표시가 가능합니다.</span>
+              ` : `<button class="primary-button" type="button" onclick="updateStatus('${selected.id}', '전송완료표시')">문자 전송 후 완료로 표시</button>`}
             </div>
           </div>
         ` : ""}
         ${rows.length ? `<div class="line-list">${rows.map(renderConfirmationCard).join("")}</div>` : ""}
       `;
+    }
+
+    function markStoredSmsOpened(id) {
+      if (digitsOnly(resendPhone).length < 8) {
+        toast("재전송할 전체 전화번호를 입력하세요.");
+        return false;
+      }
+      updateStatus(id, "문자앱열림");
+      toast("문자앱열림 상태로 변경했습니다. 문자앱에서 실제 전송 버튼을 눌러야 합니다.");
+      return true;
     }
 
     async function copyStoredMessage(id) {
@@ -982,16 +1121,66 @@
       return [...map.values()].sort((a, b) => b.total - a.total);
     }
 
+    function settlementSummary() {
+      const sentDone = db.confirmations.filter((row) => ["전송완료표시", "정산대기", "정산확정", "입금완료"].includes(row.status)).length;
+      const notSent = db.confirmations.filter((row) => ["문자대기", "문자앱열림"].includes(row.status)).length;
+      const resendRequired = db.confirmations.filter((row) => row.status === "재전송필요").length;
+      const pendingPrices = settlementTargets().reduce((sum, row) => sum + pendingCount(row.lines), 0);
+      return { sentDone, notSent, resendRequired, pendingPrices };
+    }
+
     function renderSettlement() {
       const rows = groupSettlement();
+      const summary = settlementSummary();
+      const resendRows = db.confirmations.filter((row) => row.status === "재전송필요");
       document.getElementById("screen-settlement").innerHTML = `
         <div class="section-head">
           <div>
             <h1>밤 정산 대상</h1>
-            <p class="muted">전송완료표시 또는 정산대기 상태만 농가명 기준으로 집계합니다.</p>
+            <p class="muted">전송완료표시 또는 정산대기 상태만 농가명 기준으로 집계합니다. 재전송필요는 합계에서 제외합니다.</p>
           </div>
           <button class="primary-button" type="button" onclick="downloadSettlementCsv()">정산 대상 CSV 예시</button>
         </div>
+        <div class="stats-grid">
+          <div class="panel">
+            <span class="muted">전송완료</span>
+            <h2>${summary.sentDone}건</h2>
+          </div>
+          <div class="panel">
+            <span class="muted">미전송</span>
+            <h2>${summary.notSent}건</h2>
+          </div>
+          <div class="panel">
+            <span class="muted">재전송필요</span>
+            <h2>${summary.resendRequired}건</h2>
+          </div>
+          <div class="panel">
+            <span class="muted">단가미정</span>
+            <h2>${summary.pendingPrices}건</h2>
+          </div>
+        </div>
+        ${resendRows.length ? `
+          <div class="panel">
+            <h2>재전송필요 확인서</h2>
+            <p class="muted">아래 확인서는 수정본 문자를 다시 보내기 전까지 밤 정산 합계에 포함하지 않습니다.</p>
+            <div class="line-list">
+              ${resendRows.map((row) => `
+                <div class="line-item">
+                  <div class="section-head" style="margin:0;">
+                    <div>
+                      <h3>${escapeHtml(row.no)}</h3>
+                      <div class="muted">${escapeHtml(row.farmerName)} · ${money(totalAmount(row.lines))} · 단가미정 ${pendingCount(row.lines)}건</div>
+                    </div>
+                    <span class="badge pending-price">재전송필요</span>
+                  </div>
+                  <div class="button-row">
+                    <button class="primary-button" type="button" onclick="selectConfirmation('${row.id}')">수정본 문자 보내기</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        ` : ""}
         ${rows.length ? `<div class="line-list">${rows.map((row) => `
           <div class="confirm-card">
             <h3>${escapeHtml(row.farmerName)}</h3>
