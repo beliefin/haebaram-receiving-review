@@ -418,6 +418,7 @@
           <button type="button" data-nav="home" class="active" onclick="showScreen('home')">홈</button>
           <button type="button" data-nav="send" onclick="startNew()">입고확인서 작성</button>
           <button type="button" data-nav="today" onclick="showScreen('today')">입고 확인 내역</button>
+          <button type="button" data-nav="work" onclick="showScreen('work')">작업 후 정산 내역</button>
           <button type="button" data-nav="settlement" onclick="showScreen('settlement')">일자별 현황</button>
           <button type="button" data-nav="payment" onclick="showScreen('payment')">송금</button>
         </nav>
@@ -430,6 +431,7 @@
       <section id="screen-preview" class="screen"></section>
       <section id="screen-price" class="screen"></section>
       <section id="screen-today" class="screen"></section>
+      <section id="screen-work" class="screen"></section>
       <section id="screen-send" class="screen"></section>
       <section id="screen-settlement" class="screen"></section>
       <section id="screen-payment" class="screen"></section>
@@ -447,6 +449,8 @@
     const LEGACY_STATUS = ["문자대기", "문자앱열림", "전송완료표시", "재전송필요", "정산대기", "정산확정", "입금완료"];
     const ITEMS = ["사과", "배", "복숭아", "포도", "감귤"];
     const GRADES = ["A", "B", "C", "소"];
+    const UNCLASSIFIED_GRADE = "등급미분류";
+    const GRADE_INPUTS = [...GRADES, UNCLASSIFIED_GRADE];
     const DEFAULT_ITEM = "배";
     const DEFAULT_GRADE = "A";
     const CONTAINERS = [
@@ -495,7 +499,7 @@
     }
 
     function emptyGradeCounts() {
-      return GRADES.reduce((counts, grade) => ({ ...counts, [grade]: "" }), {});
+      return GRADE_INPUTS.reduce((counts, grade) => ({ ...counts, [grade]: "" }), {});
     }
 
     function makeId(prefix) {
@@ -653,26 +657,44 @@
       return normalizeWorkStatus(line) === "작업후정산예정" || Boolean(line?.workPending);
     }
 
+    function isUnclassifiedGrade(grade) {
+      return String(grade || "").trim() === UNCLASSIFIED_GRADE;
+    }
+
+    function lineIsUnclassified(line) {
+      return isUnclassifiedGrade(line?.grade) || Boolean(line?.gradeUnclassified);
+    }
+
+    function unclassifiedCount(lines = []) {
+      return lines.filter(lineIsUnclassified).length;
+    }
+
+    function receiptHasUnclassified(source) {
+      return unclassifiedCount(source?.lines || []) > 0;
+    }
+
     function normalizeLine(line) {
       const count = Number(line?.count || 0);
       const workStatus = normalizeWorkStatus(line);
       const workPending = workStatus === "작업후정산예정";
+      const gradeUnclassified = lineIsUnclassified(line);
       const unitPrice = line?.unitPrice === null || line?.unitPrice === undefined ? null : Number(line.unitPrice);
       const customKg = line?.customKg === null || line?.customKg === undefined ? parseKgValue(line?.containerSize) : parseKgValue(line.customKg);
-      const pricePending = workPending ? false : Boolean(line?.pricePending || unitPrice === null || line?.amount === null);
+      const pricePending = workPending || gradeUnclassified ? false : Boolean(line?.pricePending || unitPrice === null || line?.amount === null);
       return {
         id: line?.id || makeId("line"),
         item: line?.item || "",
-        grade: line?.grade || "",
+        grade: gradeUnclassified ? UNCLASSIFIED_GRADE : (line?.grade || ""),
         containerType: line?.containerType || "",
         containerSize: line?.containerSize || "",
         customKg,
         baseUnitKg: Number(line?.baseUnitKg || 20),
-        baseUnitPrice: workPending ? null : (line?.baseUnitPrice === null || line?.baseUnitPrice === undefined ? unitPrice : Number(line.baseUnitPrice)),
+        baseUnitPrice: workPending || gradeUnclassified ? null : (line?.baseUnitPrice === null || line?.baseUnitPrice === undefined ? unitPrice : Number(line.baseUnitPrice)),
         count,
-        unitPrice: workPending ? null : unitPrice,
-        amount: workPending || pricePending ? null : Number(line?.amount ?? count * unitPrice),
+        unitPrice: workPending || gradeUnclassified ? null : unitPrice,
+        amount: workPending || gradeUnclassified || pricePending ? null : Number(line?.amount ?? count * unitPrice),
         pricePending,
+        gradeUnclassified,
         workStatus,
         workPending
       };
@@ -862,6 +884,34 @@
             smsStatus: "문자대기",
             workStatus: "작업후정산예정",
             lines: [makeLine("복숭아", "B", "기타", "", 2, 8, "작업후정산예정")]
+          }),
+          sampleConfirmation({
+            id: "S009",
+            seq: 9,
+            farmerName: "샘플 등급미분류농가",
+            phone: "010-1000-0009",
+            accountNo: "TEST-WORK-003",
+            accountHolder: "샘플 등급미분류농가",
+            hour: "12:10",
+            smsStatus: "전송완료",
+            workStatus: "작업후정산예정",
+            lines: [makeLine("배", UNCLASSIFIED_GRADE, "상자", "20kg", 12, 20, "작업후정산예정")]
+          }),
+          sampleConfirmation({
+            id: "S010",
+            seq: 10,
+            farmerName: "샘플 혼합정산농가",
+            phone: "010-1000-0010",
+            accountNo: "TEST-WORK-004",
+            accountHolder: "샘플 혼합정산농가",
+            hour: "12:35",
+            smsStatus: "전송완료",
+            workStatus: "작업후정산예정",
+            lines: [
+              makeLine("배", "A", "상자", "20kg", 6, 20, "작업후정산예정"),
+              makeLine("배", "B", "상자", "20kg", 3, 20, "작업후정산예정"),
+              makeLine("배", UNCLASSIFIED_GRADE, "상자", "20kg", 5, 20, "작업후정산예정")
+            ]
           })
         ]
       };
@@ -920,6 +970,7 @@
     }
 
     function findPrice(item, grade) {
+      if (isUnclassifiedGrade(grade)) return null;
       const name = String(item || "").trim();
       const row = priceRules.items.find((rule) => rule.itemName === name);
       const itemPrice = row?.gradePrices?.[grade];
@@ -937,34 +988,36 @@
     function makeLine(item, grade, containerType, containerSize, count, customKg = 0, workStatus = "작업완료") {
       const lineWorkStatus = normalizeWorkStatus({ workStatus });
       const workPending = lineWorkStatus === "작업후정산예정";
+      const gradeUnclassified = isUnclassifiedGrade(grade);
       const unitPrice = findPrice(item, grade);
       const kg = lineKg(containerType, containerSize, customKg);
       const hasCalculableKg = containerType !== "기타" || kg > 0;
-      const amount = workPending || unitPrice === null || !hasCalculableKg ? null : Math.round(unitPrice * (kg / 20) * Number(count || 0));
+      const amount = workPending || gradeUnclassified || unitPrice === null || !hasCalculableKg ? null : Math.round(unitPrice * (kg / 20) * Number(count || 0));
       return {
         id: makeId("line"),
         item,
-        grade,
+        grade: gradeUnclassified ? UNCLASSIFIED_GRADE : grade,
         containerType,
         containerSize: containerType === "기타" ? (kg > 0 ? `${kg}kg` : "kg 미입력") : containerSize,
         customKg: kg,
         baseUnitKg: 20,
-        baseUnitPrice: workPending ? null : unitPrice,
+        baseUnitPrice: workPending || gradeUnclassified ? null : unitPrice,
         count: Number(count || 0),
-        unitPrice: workPending ? null : unitPrice,
+        unitPrice: workPending || gradeUnclassified ? null : unitPrice,
         amount,
-        pricePending: workPending ? false : amount === null,
+        pricePending: workPending || gradeUnclassified ? false : amount === null,
+        gradeUnclassified,
         workStatus: lineWorkStatus,
         workPending
       };
     }
 
     function isPricePending(line) {
-      return !lineIsWorkPending(line) && (line.pricePending || line.unitPrice === null || line.amount === null);
+      return !lineIsWorkPending(line) && !lineIsUnclassified(line) && (line.pricePending || line.unitPrice === null || line.amount === null);
     }
 
     function payableAmount(line) {
-      return lineIsWorkPending(line) || isPricePending(line) ? 0 : Number(line.amount || 0);
+      return lineIsWorkPending(line) || lineIsUnclassified(line) || isPricePending(line) ? 0 : Number(line.amount || 0);
     }
 
     function totalAmount(lines) {
@@ -976,11 +1029,13 @@
     }
 
     function amountLabel(line) {
+      if (lineIsUnclassified(line)) return "등급미분류 / 금액 미확정";
       if (lineIsWorkPending(line)) return "작업 후 정산 예정";
       return isPricePending(line) ? "단가 미정 / 정산 확인 필요" : money(line.amount);
     }
 
     function priceLabel(line) {
+      if (lineIsUnclassified(line)) return "등급 확정 필요";
       if (lineIsWorkPending(line)) return "금액 미확정";
       return isPricePending(line) ? "단가 미정" : money(line.unitPrice);
     }
@@ -991,6 +1046,10 @@
 
     function receiptPendingPriceLabel(source) {
       return isWorkPending(source) ? "-" : `${pendingCount(source.lines || [])}건`;
+    }
+
+    function receiptUnclassifiedLabel(source) {
+      return `${unclassifiedCount(source?.lines || [])}건`;
     }
 
     function recalcLineForWorkStatus(line, workStatus) {
@@ -1040,11 +1099,11 @@
     }
 
     function hasPositivePayableAmount(row) {
-      return isWorkCompleted(row) && totalAmount(row.lines || []) > 0 && pendingCount(row.lines || []) === 0;
+      return isWorkCompleted(row) && !receiptHasUnclassified(row) && totalAmount(row.lines || []) > 0 && pendingCount(row.lines || []) === 0;
     }
 
     function isPaymentBaseEligible(row) {
-      return row.smsStatus === "전송완료" && isWorkCompleted(row) && hasPositivePayableAmount(row) && hasPaymentAccount(row);
+      return row.smsStatus === "전송완료" && isWorkCompleted(row) && !receiptHasUnclassified(row) && hasPositivePayableAmount(row) && hasPaymentAccount(row);
     }
 
     function isPaymentLocked(row) {
@@ -1089,6 +1148,7 @@
         unitPrice: line.unitPrice,
         amount: line.amount,
         pricePending: Boolean(line.pricePending),
+        gradeUnclassified: lineIsUnclassified(line),
         workStatus: normalizeWorkStatus(line),
         workPending: lineIsWorkPending(line)
       })));
@@ -1114,6 +1174,7 @@
       renderPreview();
       renderPrice();
       renderToday();
+      renderWorkPending();
       renderSend();
       renderSettlement();
       renderPayment();
@@ -1189,6 +1250,7 @@
     function renderHome() {
       const today = todayConfirmations();
       const sendWaiting = sendWaitingRows();
+      const workPendingCount = db.confirmations.filter(isWorkPending).length;
       const paymentWaiting = paymentTargetRows(today).filter((row) => row.paymentStatus !== "송금완료").length;
       document.getElementById("screen-home").innerHTML = `
         <div class="section-head">
@@ -1213,6 +1275,10 @@
           <button class="quick-button" type="button" onclick="showScreen('settlement')">
             <span><strong>일자별 현황</strong><span class="muted">과일, 용기, 농가별 집계</span></span>
             <span class="count">${today.length}</span>
+          </button>
+          <button class="quick-button" type="button" onclick="showScreen('work')">
+            <span><strong>작업 후 정산 내역</strong><span class="muted">금액 미확정 확인서</span></span>
+            <span class="count">${workPendingCount}</span>
           </button>
           <button class="quick-button" type="button" onclick="showScreen('payment')">
             <span><strong>송금</strong><span class="muted">미송금 대상 확인과 완료 표시</span></span>
@@ -1684,6 +1750,11 @@
         renderForm();
         return;
       }
+      if (checked && (receiptHasUnclassified(draft) || parseCount(draft.gradeCounts?.[UNCLASSIFIED_GRADE]) > 0)) {
+        toast("등급미분류 수량이 있으면 작업 완료로 저장할 수 없습니다. 작업 후 정산 예정으로 저장하세요.");
+        renderForm();
+        return;
+      }
       const nextStatus = checked ? "작업완료" : "작업후정산예정";
       draft.workStatus = nextStatus;
       draft.lines = draft.lines.map((line) => recalcLineForWorkStatus(line, nextStatus));
@@ -1720,7 +1791,7 @@
       return `
         <h3>등급별 수량</h3>
         <div class="filter-row">
-          ${GRADES.map((grade) => `
+          ${GRADE_INPUTS.map((grade) => `
             <div class="field">
               <label for="grade-count-${grade}">${grade} 수량</label>
               <input id="grade-count-${grade}" type="number" min="0" step="1" inputmode="numeric" value="${escapeHtml(draft.gradeCounts[grade] || "")}" oninput="setGradeBatchCount('${grade}', this.value)" placeholder="0">
@@ -1738,13 +1809,17 @@
         toast("과일/품목과 용기를 확인하세요.");
         return;
       }
-      const nextLines = GRADES.map((grade) => {
+      if (isWorkCompleted(draft) && parseCount(draft.gradeCounts[UNCLASSIFIED_GRADE]) > 0) {
+        toast("등급미분류 수량이 있으면 작업 완료로 저장할 수 없습니다. 작업 완료 체크를 해제하고 작업 후 정산 예정으로 저장하세요.");
+        return;
+      }
+      const nextLines = GRADE_INPUTS.map((grade) => {
         const count = parseCount(draft.gradeCounts[grade]);
         if (count <= 0) return null;
         return makeLine(line.item, grade, line.containerType, line.containerSize, count, line.customKg, draft.workStatus);
       }).filter(Boolean);
       if (!nextLines.length) {
-        toast("A/B/C/소 중 1개 이상 수량을 입력하세요.");
+        toast("A/B/C/소/등급미분류 중 1개 이상 수량을 입력하세요.");
         return;
       }
       draft.lines.push(...nextLines);
@@ -1811,6 +1886,10 @@
     function goPreview() {
       if (!canPreview()) {
         toast("농가명, 전화번호, 상세 줄을 확인하세요.");
+        return;
+      }
+      if (isWorkCompleted(draft) && receiptHasUnclassified(draft)) {
+        toast("등급미분류 수량이 있으면 작업 완료로 저장할 수 없습니다. 등급을 A/B/C/소로 정리하거나 작업 후 정산 예정으로 저장하세요.");
         return;
       }
       draft.receivedAt = nowLocal();
@@ -1940,6 +2019,7 @@
             <li><span>계좌정보</span><b>${escapeHtml(accountDisplay(source))}</b></li>
             <li><span>정산 반영 합계</span><b>${receiptAmountLabel(source)}</b></li>
             <li><span>단가 미정 건수</span><b>${receiptPendingPriceLabel(source)}</b></li>
+            <li><span>등급미분류</span><b>${receiptUnclassifiedLabel(source)}</b></li>
           </ul>
           ${renderLineList(lines, false)}
         </div>
@@ -1954,8 +2034,11 @@
       }).join("\n");
       const title = isSettlementFinalMessage(source) ? "[해바람 입고확인 정산확정]" : (isRevisionMessage(source) ? "[해바람 입고확인 수정본]" : "[해바람 입고확인]");
       const detailLabel = isRevisionMessage(source) ? "수정된 상세 줄" : "상세 줄";
-      if (isWorkPending(source)) {
-        return `${title}\n입고번호: ${source.no}\n농가명: ${source.farmerName}\n${detailLabel}:\n${lineText}\n작업 후 정산 예정입니다. 선별 작업 완료 후 등급·단가·금액을 확정해 다시 안내드리겠습니다.\n내용이 다르면 연락 바랍니다.`;
+      if (isWorkPending(source) || receiptHasUnclassified(source)) {
+        const pendingReason = receiptHasUnclassified(source)
+          ? "등급미분류 수량이 있어 작업 후 정산 예정입니다."
+          : "작업 후 정산 예정입니다.";
+        return `${title}\n입고번호: ${source.no}\n농가명: ${source.farmerName}\n${detailLabel}:\n${lineText}\n${pendingReason} 선별 작업 완료 후 등급·단가·금액을 확정해 다시 안내드리겠습니다.\n내용이 다르면 연락 바랍니다.`;
       }
       return `${title}\n입고번호: ${source.no}\n농가명: ${source.farmerName}\n${detailLabel}:\n${lineText}\n정산 반영 합계: ${money(totalAmount(lines))}\n단가 미정 건수: ${pendingCount(lines)}건\n내용이 다르면 연락 바랍니다.`;
     }
@@ -2029,6 +2112,68 @@
       `;
     }
 
+    function gradeQuantitySummary(row, includeZero = true) {
+      const counts = GRADE_INPUTS.reduce((map, grade) => ({ ...map, [grade]: 0 }), {});
+      (row.lines || []).forEach((line) => {
+        const key = isUnclassifiedGrade(line.grade) ? UNCLASSIFIED_GRADE : line.grade;
+        if (Object.prototype.hasOwnProperty.call(counts, key)) counts[key] += Number(line.count || 0);
+      });
+      return GRADE_INPUTS
+        .filter((grade) => includeZero || counts[grade] > 0)
+        .map((grade) => `${grade} ${number(counts[grade])}개`)
+        .join(" · ");
+    }
+
+    function elapsedDaysLabel(row) {
+      const date = confirmationDate(row);
+      const start = new Date(`${date}T00:00:00`);
+      const today = new Date(`${localDateISO()}T00:00:00`);
+      const diff = Math.max(0, Math.floor((today - start) / 86400000));
+      return diff === 0 ? "오늘" : `${diff}일 경과`;
+    }
+
+    function renderWorkPendingCard(row) {
+      const locked = isPaymentLocked(row);
+      return `
+        <div class="confirm-card">
+          <div class="section-head" style="margin:0;">
+            <div>
+              <h3>${escapeHtml(row.no)}</h3>
+              <div class="muted">${escapeHtml(confirmationDate(row))} · ${escapeHtml(elapsedDaysLabel(row))}</div>
+            </div>
+            <span class="badge pending-price">금액 미확정</span>
+          </div>
+          <ul class="summary-list">
+            <li><span>농가명</span><b>${escapeHtml(row.farmerName)}</b></li>
+            <li><span>전화번호</span><b>${escapeHtml(phoneDisplay(row))}</b></li>
+            <li><span>과일/품목</span><b>${escapeHtml(itemSummary(row))}</b></li>
+            <li><span>등급별 수량</span><b>${escapeHtml(gradeQuantitySummary(row))}</b></li>
+            <li><span>문자상태</span><b>${escapeHtml(row.smsStatus)}</b></li>
+            <li><span>등급미분류</span><b>${receiptUnclassifiedLabel(row)}</b></li>
+            <li><span>정산상태</span><b>${receiptAmountLabel(row)}</b></li>
+          </ul>
+          ${renderLineList(row.lines, false)}
+          <div class="button-row">
+            ${locked ? `<button class="ghost-button" type="button" onclick="warnPaymentLocked('${row.id}')">수정 잠김</button>` : `<button class="primary-button" type="button" onclick="editConfirmation('${row.id}')">작업 완료 처리/수정</button>`}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderWorkPending() {
+      const rows = db.confirmations.filter(isWorkPending).sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
+      document.getElementById("screen-work").innerHTML = `
+        <div class="section-head">
+          <div>
+            <h1>작업 후 정산 내역</h1>
+            <p class="muted">작업이 끝난 뒤 등급과 금액을 확정해야 하는 확인서만 모아봅니다. 이 화면에서는 송금완료 처리를 하지 않습니다.</p>
+          </div>
+          <button class="primary-button" type="button" onclick="startNew()">새 확인서</button>
+        </div>
+        ${rows.length ? `<div class="line-list">${rows.map(renderWorkPendingCard).join("")}</div>` : "<div class='empty'>작업 후 정산 예정 건이 없습니다.</div>"}
+      `;
+    }
+
     function renderConfirmationCard(confirmation) {
       const locked = isPaymentLocked(confirmation);
       return `
@@ -2044,6 +2189,7 @@
             <li><span>작업상태</span><b>${escapeHtml(workStatusLabel(confirmation))}</b></li>
             <li><span>정산 반영 합계</span><b>${receiptAmountLabel(confirmation)}</b></li>
             <li><span>단가 미정</span><b>${receiptPendingPriceLabel(confirmation)}</b></li>
+            <li><span>등급미분류</span><b>${receiptUnclassifiedLabel(confirmation)}</b></li>
             <li><span>입고일시</span><b>${escapeHtml(confirmation.receivedAt.replace("T", " "))}</b></li>
             <li><span>문자상태</span><b>${escapeHtml(confirmation.smsStatus)}</b></li>
             <li><span>송금상태</span><b>${escapeHtml(confirmation.paymentStatus || "송금대기")}</b></li>
@@ -2201,12 +2347,23 @@
       const sentRows = rows.filter((row) => row.smsStatus === "전송완료");
       const resendRows = rows.filter((row) => row.smsStatus === "재전송필요");
       const workPendingRows = rows.filter(isWorkPending);
+      const unclassifiedRows = rows.filter(receiptHasUnclassified);
       const pendingRows = rows.filter((row) => isWorkCompleted(row) && pendingCount(row.lines) > 0);
       const pendingLineCount = rows.reduce((sum, row) => sum + (isWorkCompleted(row) ? pendingCount(row.lines) : 0), 0);
       const workPendingLineCount = workPendingRows.reduce((sum, row) => sum + (row.lines || []).length, 0);
+      const unclassifiedLineCount = rows.reduce((sum, row) => sum + unclassifiedCount(row.lines || []), 0);
+      const missingAccountRows = rows.filter((row) =>
+        row.smsStatus === "전송완료" &&
+        isWorkCompleted(row) &&
+        !receiptHasUnclassified(row) &&
+        hasPositivePayableAmount(row) &&
+        !hasPaymentAccount(row)
+      );
+      const paymentWaitingRows = rows.filter((row) => isPaymentBaseEligible(row) && row.paymentStatus !== "송금완료");
+      const paymentWaitingTotal = paymentWaitingRows.reduce((sum, row) => sum + totalAmount(row.lines), 0);
       const totalQuantity = rows.reduce((sum, row) => sum + (row.lines || []).reduce((lineSum, line) => lineSum + Number(line.count || 0), 0), 0);
-      const payableTotal = sentRows.filter(isWorkCompleted).reduce((sum, row) => sum + totalAmount(row.lines), 0);
-      return { unsentRows, sentRows, resendRows, workPendingRows, workPendingLineCount, pendingRows, pendingLineCount, totalQuantity, payableTotal };
+      const payableTotal = sentRows.filter((row) => isWorkCompleted(row) && !receiptHasUnclassified(row)).reduce((sum, row) => sum + totalAmount(row.lines), 0);
+      return { unsentRows, sentRows, resendRows, workPendingRows, workPendingLineCount, unclassifiedRows, unclassifiedLineCount, pendingRows, pendingLineCount, missingAccountRows, paymentWaitingRows, paymentWaitingTotal, totalQuantity, payableTotal };
     }
 
     function renderAggregateTable(title, rows, label = "구분") {
@@ -2278,10 +2435,38 @@
                 <li><span>작업상태</span><b>${escapeHtml(workStatusLabel(row))}</b></li>
                 <li><span>총액</span><b>${receiptAmountLabel(row)}</b></li>
                 <li><span>단가미정</span><b>${receiptPendingPriceLabel(row)}</b></li>
+                <li><span>등급미분류</span><b>${receiptUnclassifiedLabel(row)}</b></li>
                 <li><span>상세 줄</span><b>${row.lines.length}줄</b></li>
               </ul>
             </div>
           `).join("")}</div>` : "<div class='empty'>해당 확인서가 없습니다.</div>"}
+        </div>
+      `;
+    }
+
+    function renderActionItems(summary) {
+      const items = [
+        { label: "문자 미전송", count: summary.unsentRows.length, description: "문자대기 또는 문자앱열림 상태입니다." },
+        { label: "재전송필요", count: summary.resendRows.length, description: "수정본 문자를 다시 보내야 합니다." },
+        { label: "작업 후 정산 예정", count: summary.workPendingRows.length, description: "작업 완료 후 금액 확정이 필요합니다." },
+        { label: "등급미분류 있음", count: summary.unclassifiedRows.length, description: "등급을 A/B/C/소로 정리해야 합니다." },
+        { label: "단가미정", count: summary.pendingRows.length, description: "등급은 확정됐지만 단가표 확인이 필요합니다." },
+        { label: "계좌정보 누락", count: summary.missingAccountRows.length, description: "송금 전 은행명, 계좌번호, 예금주가 필요합니다." },
+        { label: "송금대기", count: summary.paymentWaitingRows.length, description: "송금 대상으로 확정됐지만 아직 완료 표시 전입니다." }
+      ];
+      return `
+        <div class="panel warning-panel">
+          <h2>처리 필요 항목</h2>
+          <p class="muted">오늘 먼저 확인할 항목입니다. 각 건수는 선택한 일자 기준입니다.</p>
+        </div>
+        <div class="stats-grid">
+          ${items.map((item) => `
+            <div class="panel">
+              <span class="muted">${escapeHtml(item.label)}</span>
+              <h2>${number(item.count)}건</h2>
+              <p class="muted">${escapeHtml(item.description)}</p>
+            </div>
+          `).join("")}
         </div>
       `;
     }
@@ -2297,6 +2482,7 @@
         { label: "문자 전송 완료", value: summary.sentRows.length },
         { label: "재전송필요", value: summary.resendRows.length },
         { label: "작업 후 정산 예정", value: summary.workPendingRows.length },
+        { label: "등급미분류 있음", value: summary.unclassifiedRows.length },
         { label: "단가미정", value: summary.pendingRows.length }
       ];
       const itemChartRows = itemRows.slice(0, 5).map((row) => ({ label: row.key, value: row.count }));
@@ -2324,6 +2510,11 @@
             <input id="dailyDateFilter" type="date" value="${escapeHtml(dailyDateFilter)}" onchange="dailyDateFilter = this.value || localDateISO(); renderSettlement();">
           </div>
         </div>
+        ${renderActionItems(summary)}
+        <div class="panel">
+          <h2>핵심 요약</h2>
+          <p class="muted">정산 반영 가능 금액은 전송완료, 작업완료, 등급 확정, 단가 확정, 계좌 확인 가능한 건을 기준으로 봅니다.</p>
+        </div>
         <div class="stats-grid">
           <div class="panel">
             <span class="muted">총 확인서 수</span>
@@ -2346,6 +2537,10 @@
             <h2>${summary.workPendingRows.length}건 / ${summary.workPendingLineCount}줄</h2>
           </div>
           <div class="panel">
+            <span class="muted">등급미분류 확인서/상세 줄</span>
+            <h2>${summary.unclassifiedRows.length}건 / ${summary.unclassifiedLineCount}줄</h2>
+          </div>
+          <div class="panel">
             <span class="muted">단가미정 확인서/상세 줄</span>
             <h2>${summary.pendingRows.length}건 / ${summary.pendingLineCount}줄</h2>
           </div>
@@ -2357,13 +2552,10 @@
             <span class="muted">정산 반영 가능 금액</span>
             <h2>${money(summary.payableTotal)}</h2>
           </div>
-        </div>
-        <div class="status-split">
-          ${renderBarChart("문자상태별 확인서", statusChartRows, "건")}
-          ${renderBarChart("과일/품목별 수량", itemChartRows, "개")}
-          ${renderBarChart("과일/품목별 정산 반영 금액", itemAmountChartRows, "원")}
-          ${renderBarChart("송금상태 요약", paymentChartRows, "건")}
-          ${renderBarChart("농가별 정산 반영 금액 Top", farmerAmountChartRows, "원")}
+          <div class="panel">
+            <span class="muted">송금대기 금액</span>
+            <h2>${money(summary.paymentWaitingTotal)}</h2>
+          </div>
         </div>
         ${summary.resendRows.length ? `
           <div class="panel warning-panel">
@@ -2395,9 +2587,26 @@
               ${summary.workPendingRows.map((row) => `
                 <div class="line-item">
                   <h3>${escapeHtml(row.no)} · ${escapeHtml(row.farmerName)}</h3>
-                  <div class="muted">${number(totalQuantity(row.lines))}개 · ${escapeHtml(phoneDisplay(row))} · 금액 미확정</div>
+                  <div class="muted">${number(totalQuantity(row.lines))}개 · 등급미분류 ${receiptUnclassifiedLabel(row)} · ${escapeHtml(phoneDisplay(row))} · 금액 미확정</div>
                   <div class="button-row">
                     <button class="ghost-button" type="button" onclick="editConfirmation('${row.id}')">작업 완료로 수정</button>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        ` : ""}
+        ${summary.unclassifiedRows.length ? `
+          <div class="panel warning-panel">
+            <h2>등급미분류 확인서</h2>
+            <p class="muted">등급미분류는 아직 A/B/C/소 등급이 확정되지 않은 수량입니다. 단가미정과 다르게 단가표 조회 대상이 아니며 송금 대상에서 제외됩니다.</p>
+            <div class="line-list">
+              ${summary.unclassifiedRows.map((row) => `
+                <div class="line-item">
+                  <h3>${escapeHtml(row.no)} · ${escapeHtml(row.farmerName)}</h3>
+                  <div class="muted">${escapeHtml(gradeQuantitySummary(row, false))} · ${escapeHtml(phoneDisplay(row))}</div>
+                  <div class="button-row">
+                    <button class="ghost-button" type="button" onclick="editConfirmation('${row.id}')">등급 정리/수정</button>
                   </div>
                 </div>
               `).join("")}
@@ -2421,6 +2630,17 @@
         <div class="status-split">
           ${renderStatusList("문자 미전송 확인서", summary.unsentRows)}
           ${renderStatusList("문자 전송 완료 확인서", summary.sentRows)}
+        </div>
+        <div class="panel">
+          <h2>상세 분석</h2>
+          <p class="muted">품목별 수량에는 작업 후 정산 예정과 등급미분류 수량이 포함될 수 있습니다. 금액 차트는 정산 반영 가능한 금액만 집계합니다.</p>
+        </div>
+        <div class="status-split">
+          ${renderBarChart("문자상태별 확인서", statusChartRows, "건")}
+          ${renderBarChart("과일/품목별 수량 (금액 미확정 수량 포함)", itemChartRows, "개")}
+          ${renderBarChart("과일/품목별 정산 반영 금액", itemAmountChartRows, "원")}
+          ${renderBarChart("송금상태별", paymentChartRows, "건")}
+          ${renderBarChart("농가별 정산 반영 금액 Top", farmerAmountChartRows, "원")}
         </div>
         ${renderAggregateTable("과일/품목별 집계", itemRows, "과일/품목")}
         ${renderAggregateTable("무게/용기별 집계", containerRows, "무게/용기")}
@@ -2477,6 +2697,7 @@
       const result = {
         unsent: [],
         resend: [],
+        unclassified: [],
         workPending: [],
         pendingPrice: [],
         missingAccount: []
@@ -2484,6 +2705,7 @@
       paymentBaseRows().forEach((row) => {
         if (row.smsStatus === "재전송필요") result.resend.push(row);
         else if (row.smsStatus !== "전송완료") result.unsent.push(row);
+        else if (receiptHasUnclassified(row)) result.unclassified.push(row);
         else if (isWorkPending(row)) result.workPending.push(row);
         else if (!hasPositivePayableAmount(row)) result.pendingPrice.push(row);
         else if (!hasPaymentAccount(row)) result.missingAccount.push(row);
@@ -2571,6 +2793,7 @@
                 <li><span>계좌정보</span><b>${escapeHtml(accountDisplay(row))}</b></li>
                 <li><span>작업상태</span><b>${escapeHtml(workStatusLabel(row))}</b></li>
                 <li><span>단가미정</span><b>${receiptPendingPriceLabel(row)}</b></li>
+                <li><span>등급미분류</span><b>${receiptUnclassifiedLabel(row)}</b></li>
                 <li><span>금액</span><b>${receiptAmountLabel(row)}</b></li>
               </ul>
             </div>
@@ -2796,6 +3019,7 @@
         ${renderPaymentAggregateTable("농가별 송금 대상 금액", farmerRows, "농가명")}
         ${renderPaymentExclusionPanel("문자 미전송 제외", excluded.unsent, "문자대기 또는 문자앱열림 상태는 송금 대상에서 제외합니다.")}
         ${renderPaymentExclusionPanel("재전송필요 제외", excluded.resend, "수정본 문자를 다시 보내기 전까지 송금 대상에서 제외합니다.")}
+        ${renderPaymentExclusionPanel("등급미분류 제외", excluded.unclassified, "등급미분류는 아직 등급 자체가 확정되지 않아 단가표 조회와 송금 대상에서 제외합니다.")}
         ${renderPaymentExclusionPanel("작업 후 정산 예정 제외", excluded.workPending, "작업 완료 후 최종 금액을 확정하고 문자를 다시 보내기 전까지 송금 대상에서 제외합니다.")}
         ${renderPaymentExclusionPanel("단가미정 제외", excluded.pendingPrice, "단가미정 또는 금액 계산 불가 확인서는 송금 대상에서 제외합니다.")}
         ${renderPaymentExclusionPanel("계좌정보 누락 제외", excluded.missingAccount, "은행명, 계좌번호, 예금주가 모두 있어야 송금 대상으로 표시합니다.")}
