@@ -407,7 +407,7 @@
         <div class="brand-row">
           <div class="brand">
             <strong>전자 입고확인서</strong>
-            <span id="todayLabel">문자 · 단가 · 입고 내역 · 현황 · 송금 프로토타입</span>
+            <span id="todayLabel">입고확인서 작성 · 입고 내역 · 현황 · 송금 프로토타입</span>
           </div>
           <div class="top-actions">
             <button class="ghost-button" type="button" onclick="showScreen('price')">단가 관리</button>
@@ -416,7 +416,7 @@
         </div>
         <nav class="nav" aria-label="주요 화면">
           <button type="button" data-nav="home" class="active" onclick="showScreen('home')">홈</button>
-          <button type="button" data-nav="send" onclick="startNew()">문자</button>
+          <button type="button" data-nav="send" onclick="startNew()">입고확인서 작성</button>
           <button type="button" data-nav="today" onclick="showScreen('today')">입고 확인 내역</button>
           <button type="button" data-nav="settlement" onclick="showScreen('settlement')">일자별 현황</button>
           <button type="button" data-nav="payment" onclick="showScreen('payment')">송금</button>
@@ -440,6 +440,7 @@
   <script>
     const STORAGE_KEY = "haebaramConfirmAppV1";
     const PRICE_STORAGE_KEY = "haebaramConfirmPriceRules";
+    const FAVORITE_STORAGE_KEY = "haebaramConfirmFavorites";
     const SMS_STATUS = ["문자대기", "문자앱열림", "전송완료", "재전송필요"];
     const PAYMENT_STATUS = ["송금대기", "송금완료"];
     const LEGACY_STATUS = ["문자대기", "문자앱열림", "전송완료표시", "재전송필요", "정산대기", "정산확정", "입금완료"];
@@ -452,6 +453,9 @@
 
     let priceRules = loadPriceRules();
     let priceDraft = freshPriceDraft();
+    let favorites = loadFavorites();
+    let favoritePanelOpen = false;
+    let favoriteNameDraft = "";
     let db = loadDb();
     let currentScreen = "home";
     let draft = freshDraft();
@@ -557,7 +561,8 @@
 
     function loadPriceRules() {
       try {
-        return normalizePriceRules(JSON.parse(localStorage.getItem(PRICE_STORAGE_KEY) || "{}"));
+        const stored = localStorage.getItem(PRICE_STORAGE_KEY);
+        return stored ? normalizePriceRules(JSON.parse(stored)) : createSeedPriceRules();
       } catch (error) {
         console.warn("confirm app price rule parse failed", error);
         return normalizePriceRules();
@@ -567,6 +572,16 @@
     function savePriceRules() {
       priceRules = normalizePriceRules(priceRules);
       localStorage.setItem(PRICE_STORAGE_KEY, JSON.stringify(priceRules));
+    }
+
+    function createSeedPriceRules() {
+      return normalizePriceRules({
+        items: [
+          { itemName: "사과", gradePrices: { A: 80000, B: 60000, C: 42000, "소": 30000 } },
+          { itemName: "배", gradePrices: { A: 90000, B: 65000, C: 45000, "소": null } },
+          { itemName: "복숭아", gradePrices: { A: 70000, B: 56000, C: 38000, "소": 25000 } }
+        ]
+      });
     }
 
     function freshPriceDraft() {
@@ -664,31 +679,115 @@
       };
     }
 
+    function sampleConfirmation({
+      id,
+      seq,
+      farmerName,
+      phone,
+      bankName = "테스트농협",
+      accountNo = "",
+      accountHolder = farmerName,
+      hour,
+      smsStatus,
+      paymentStatus = "송금대기",
+      paymentCompletedAt = "",
+      lines
+    }) {
+      const time = `${localDateISO()}T${hour}`;
+      return {
+        id,
+        no: `EC-${localDateISO().replaceAll("-", "")}-${String(seq).padStart(3, "0")}`,
+        farmerName,
+        phone,
+        phoneLast4: last4(phone),
+        bankName,
+        accountNo,
+        accountHolder,
+        receivedAt: time,
+        receivedDate: localDateISO(),
+        smsStatus,
+        paymentStatus,
+        paymentCompletedAt,
+        status: smsStatus,
+        lines,
+        isRevision: smsStatus === "재전송필요",
+        createdAt: time,
+        updatedAt: time
+      };
+    }
+
     function createSeedDb() {
       return {
         confirmations: [
-          {
-            id: "C001",
-            no: `EC-${localDateISO().replaceAll("-", "")}-001`,
-            farmerName: "김해숙 농가",
-            phone: "010-0000-7788",
-            phoneLast4: "7788",
-            bankName: "농협",
-            accountNo: "샘플-계좌-001",
-            accountHolder: "김해숙",
-            receivedAt: `${localDateISO()}T08:30`,
-            receivedDate: localDateISO(),
+          sampleConfirmation({
+            id: "S001",
+            seq: 1,
+            farmerName: "샘플 사과농가",
+            phone: "010-1000-0001",
+            accountNo: "TEST-APPLE-001",
+            accountHolder: "샘플 사과농가",
+            hour: "08:10",
             smsStatus: "전송완료",
-            paymentStatus: "송금대기",
-            paymentCompletedAt: "",
-            status: "전송완료",
-            lines: [
-              makeLine("사과", "A", "상자", "20kg", 5, 20),
-              makeLine("사과", "B", "상자", "20kg", 2, 20)
-            ],
-            createdAt: `${localDateISO()}T08:30`,
-            updatedAt: `${localDateISO()}T08:40`
-          }
+            lines: [makeLine("사과", "A", "상자", "20kg", 4, 20)]
+          }),
+          sampleConfirmation({
+            id: "S002",
+            seq: 2,
+            farmerName: "샘플 사과기타농가",
+            phone: "010-1000-0002",
+            accountNo: "TEST-APPLE-002",
+            accountHolder: "샘플 사과기타농가",
+            hour: "08:35",
+            smsStatus: "전송완료",
+            paymentStatus: "송금완료",
+            paymentCompletedAt: `${localDateISO()}T18:00`,
+            lines: [makeLine("사과", "B", "기타", "", 3, 10)]
+          }),
+          sampleConfirmation({
+            id: "S003",
+            seq: 3,
+            farmerName: "샘플 배농가",
+            phone: "010-1000-0003",
+            accountNo: "TEST-PEAR-001",
+            accountHolder: "샘플 배농가",
+            hour: "09:10",
+            smsStatus: "문자대기",
+            lines: [makeLine("배", "A", "상자", "20kg", 2, 20)]
+          }),
+          sampleConfirmation({
+            id: "S004",
+            seq: 4,
+            farmerName: "샘플 배소농가",
+            phone: "010-1000-0004",
+            accountNo: "TEST-PEAR-002",
+            accountHolder: "샘플 배소농가",
+            hour: "09:45",
+            smsStatus: "전송완료",
+            lines: [makeLine("배", "소", "기타", "", 4, 5)]
+          }),
+          sampleConfirmation({
+            id: "S005",
+            seq: 5,
+            farmerName: "샘플 복숭아농가",
+            phone: "010-1000-0005",
+            accountNo: "TEST-PEACH-001",
+            accountHolder: "샘플 복숭아농가",
+            hour: "10:20",
+            smsStatus: "재전송필요",
+            lines: [makeLine("복숭아", "C", "상자", "20kg", 1, 20)]
+          }),
+          sampleConfirmation({
+            id: "S006",
+            seq: 6,
+            farmerName: "샘플 계좌누락농가",
+            phone: "010-1000-0006",
+            bankName: "",
+            accountNo: "",
+            accountHolder: "",
+            hour: "10:55",
+            smsStatus: "전송완료",
+            lines: [makeLine("사과", "A", "상자", "20kg", 1, 20)]
+          })
         ]
       };
     }
@@ -726,7 +825,10 @@
     }
 
     function resetSample() {
-      if (!confirm("샘플 데이터를 초기화할까요? 현재 브라우저 저장 데이터가 바뀝니다.")) return;
+      if (!confirm("샘플 데이터를 초기화할까요? 현재 브라우저의 확인서와 검토용 단가표가 샘플로 바뀝니다. 저장된 즐겨찾기는 유지됩니다.")) return;
+      priceRules = createSeedPriceRules();
+      priceDraft = freshPriceDraft();
+      savePriceRules();
       db = createSeedDb();
       saveDb();
       draft = freshDraft();
@@ -962,7 +1064,7 @@
         </div>
         <div class="home-actions">
           <button class="quick-button" type="button" onclick="startNew()">
-            <span><strong>문자</strong><span class="muted">작성, 문자앱 열기, 전송 표시</span></span>
+            <span><strong>입고확인서 작성</strong><span class="muted">작성 후 문자앱 열기</span></span>
             <span class="count">+</span>
           </button>
           <button class="quick-button" type="button" onclick="showScreen('today')">
@@ -1126,95 +1228,188 @@
       if (match) applyHistoryMatch(match, key);
     }
 
-    function favoriteRows(limit = 5) {
-      const map = new Map();
-      historyRows().forEach((confirmation) => {
-        (confirmation.lines || []).forEach((line) => {
-          if (!line.item || !GRADES.includes(line.grade)) return;
-          const isBox = line.containerType === "상자" && line.containerSize === "20kg";
-          const isCustom = line.containerType === "기타";
-          if (!isBox && !isCustom) return;
-          const kg = isCustom ? Number(line.customKg || parseKgValue(line.containerSize)) : 20;
-          const key = [confirmation.farmerName, line.item, line.grade, line.containerType, kg].join("|");
-          const time = confirmation.updatedAt || confirmation.createdAt || confirmation.receivedAt || "";
-          if (!map.has(key)) {
-            map.set(key, {
-              key,
-              frequency: 0,
-              latestTime: "",
-              farmerName: confirmation.farmerName,
-              phone: confirmation.phone || "",
-              bankName: confirmation.bankName || "",
-              accountNo: confirmation.accountNo || "",
-              accountHolder: confirmation.accountHolder || "",
-              item: line.item,
-              grade: line.grade,
-              containerType: line.containerType,
-              containerSize: isCustom ? "" : "20kg",
-              customKg: isCustom ? kg : 20,
-              count: Number(line.count || 1)
-            });
-          }
-          const favorite = map.get(key);
-          favorite.frequency += 1;
-          if (time >= favorite.latestTime) {
-            favorite.latestTime = time;
-            favorite.phone = confirmation.phone || favorite.phone;
-            favorite.bankName = confirmation.bankName || favorite.bankName;
-            favorite.accountNo = confirmation.accountNo || favorite.accountNo;
-            favorite.accountHolder = confirmation.accountHolder || favorite.accountHolder;
-            favorite.count = Number(line.count || favorite.count || 1);
-          }
-        });
-      });
-      return [...map.values()]
-        .sort((a, b) => b.frequency - a.frequency || b.latestTime.localeCompare(a.latestTime))
-        .slice(0, limit);
+    function normalizeFavoriteLine(line = {}) {
+      const containerType = line.containerType === "기타" ? "기타" : "상자";
+      const customKg = containerType === "기타" ? parseKgValue(line.customKg || line.containerSize) : 20;
+      return {
+        item: line.item || "",
+        grade: line.grade || "",
+        containerType,
+        containerSize: containerType === "기타" ? "" : "20kg",
+        customKg,
+        count: Math.max(1, Number(line.count || 1))
+      };
     }
 
-    function favoriteContainerLabel(favorite) {
-      return favorite.containerType === "기타" ? `기타 ${favorite.customKg > 0 ? favorite.customKg + "kg" : "kg 미입력"}` : "20kg 상자";
+    function normalizeFavorite(row = {}) {
+      const type = row.type === "line" ? "line" : "full";
+      const lines = (Array.isArray(row.lines) ? row.lines : row.line ? [row.line] : []).map(normalizeFavoriteLine);
+      return {
+        id: row.id || makeId("favorite"),
+        type,
+        name: String(row.name || "").trim(),
+        farmerName: type === "full" ? String(row.farmerName || "").trim() : "",
+        phone: type === "full" ? String(row.phone || "").trim() : "",
+        bankName: type === "full" ? String(row.bankName || "").trim() : "",
+        accountNo: type === "full" ? String(row.accountNo || "").trim() : "",
+        accountHolder: type === "full" ? String(row.accountHolder || "").trim() : "",
+        lines,
+        createdAt: row.createdAt || nowLocal(),
+        updatedAt: row.updatedAt || nowLocal()
+      };
+    }
+
+    function loadFavorites() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(FAVORITE_STORAGE_KEY) || "[]");
+        return Array.isArray(parsed) ? parsed.map(normalizeFavorite).filter((favorite) => favorite.lines.length) : [];
+      } catch (error) {
+        console.warn("confirm app favorite parse failed", error);
+        return [];
+      }
+    }
+
+    function saveFavorites() {
+      favorites = favorites.map(normalizeFavorite).filter((favorite) => favorite.lines.length);
+      localStorage.setItem(FAVORITE_STORAGE_KEY, JSON.stringify(favorites));
+    }
+
+    function favoriteContainerLabel(line) {
+      return line.containerType === "기타" ? `기타 ${line.customKg > 0 ? line.customKg + "kg" : "kg 미입력"}` : "20kg 상자";
+    }
+
+    function favoriteAutoName(type, lines) {
+      if (type === "full") {
+        const lineText = lines.length ? `${lines[0].item || "상세줄"} ${lines[0].grade || ""}`.trim() : "상세줄";
+        return `${draft.farmerName || "농가"} · ${lineText}`;
+      }
+      const line = lines[0] || {};
+      return `${line.item || "품목"} ${line.grade || ""} · ${favoriteContainerLabel(line)}`.trim();
+    }
+
+    function currentFavoriteLines() {
+      const lines = draft.lines.map(normalizeFavoriteLine);
+      if (!lines.length && canAddLine()) lines.push(normalizeFavoriteLine(draft.line));
+      return lines;
+    }
+
+    function saveFavorite(type) {
+      const normalizedType = type === "line" ? "line" : "full";
+      const sourceLines = normalizedType === "line"
+        ? (canAddLine() ? [normalizeFavoriteLine(draft.line)] : draft.lines.slice(-1).map(normalizeFavoriteLine))
+        : currentFavoriteLines();
+      if (!sourceLines.length) {
+        toast("즐겨찾기에 저장할 상세 줄을 먼저 입력하세요.");
+        return;
+      }
+      if (normalizedType === "full" && !draft.farmerName.trim()) {
+        toast("전체 즐겨찾기는 농가명을 입력한 뒤 저장하세요.");
+        return;
+      }
+      const now = nowLocal();
+      const favorite = normalizeFavorite({
+        id: makeId("favorite"),
+        type: normalizedType,
+        name: favoriteNameDraft.trim() || favoriteAutoName(normalizedType, sourceLines),
+        farmerName: draft.farmerName,
+        phone: draft.phone,
+        bankName: draft.bankName,
+        accountNo: draft.accountNo,
+        accountHolder: draft.accountHolder,
+        lines: normalizedType === "line" ? [sourceLines[0]] : sourceLines,
+        createdAt: now,
+        updatedAt: now
+      });
+      favorites.unshift(favorite);
+      favoriteNameDraft = "";
+      favoritePanelOpen = true;
+      saveFavorites();
+      renderForm();
+      toast(normalizedType === "line" ? "상세줄 즐겨찾기를 저장했습니다." : "전체 즐겨찾기를 저장했습니다.");
+    }
+
+    function lineFromFavoriteTemplate(line) {
+      const template = normalizeFavoriteLine(line);
+      return makeLine(template.item, template.grade, template.containerType, template.containerSize, template.count, template.customKg);
+    }
+
+    function applySavedFavorite(id) {
+      const favorite = favorites.find((row) => row.id === id);
+      if (!favorite) return;
+      if (favorite.type === "full") {
+        draft.farmerName = favorite.farmerName || "";
+        draft.phone = favorite.phone || "";
+        draft.bankName = favorite.bankName || "";
+        draft.accountNo = favorite.accountNo || "";
+        draft.accountHolder = favorite.accountHolder || favorite.farmerName || "";
+        draft.lines = favorite.lines.map(lineFromFavoriteTemplate);
+        clearLine(false);
+      } else {
+        draft.lines.push(lineFromFavoriteTemplate(favorite.lines[0]));
+      }
+      draft.autoFillNotice = "즐겨찾기에서 불러왔습니다. 저장 전 수량, 단가, 계좌정보를 확인하세요.";
+      favoritePanelOpen = true;
+      renderForm();
+      toast("즐겨찾기에서 불러왔습니다.");
+    }
+
+    function deleteFavorite(id) {
+      const favorite = favorites.find((row) => row.id === id);
+      if (!favorite) return;
+      if (!confirm(`즐겨찾기 '${favorite.name || "이 항목"}'을 삭제할까요?`)) return;
+      favorites = favorites.filter((row) => row.id !== id);
+      saveFavorites();
+      renderForm();
+      toast("즐겨찾기를 삭제했습니다.");
+    }
+
+    function toggleFavoritePanel() {
+      favoritePanelOpen = !favoritePanelOpen;
+      renderForm();
     }
 
     function renderFavoritePanel() {
       if (draft.id) return "";
-      const favorites = favoriteRows();
       return `
         <div class="panel">
-          <h2>즐겨찾기</h2>
-          ${favorites.length ? `
-            <p class="muted">자주 입력된 농가와 상세 줄 조합입니다. 누른 뒤 저장 전 수량과 단가를 확인하세요.</p>
-            <div class="favorite-grid">
-              ${favorites.map((favorite, index) => `
-                <button class="option-card" type="button" onclick="applyFavorite(${index})">
-                  <strong>${escapeHtml(favorite.farmerName)} · ${escapeHtml(favorite.item)} ${escapeHtml(favorite.grade)}</strong>
-                  <span>${escapeHtml(favoriteContainerLabel(favorite))} · ${number(favorite.count)}개 · ${favorite.frequency}회</span>
-                </button>
-              `).join("")}
+          <div class="section-head" style="margin:0;">
+            <div>
+              <h2>즐겨찾기</h2>
+              <p class="muted">자주 쓰는 전체 확인서나 상세줄만 직접 저장해서 불러옵니다.</p>
             </div>
-          ` : "<div class='empty'>과거 이력이 쌓이면 자주 쓰는 조합이 표시됩니다.</div>"}
+            <button class="secondary-button" type="button" onclick="toggleFavoritePanel()">${favoritePanelOpen ? "닫기" : "열기"}</button>
+          </div>
+          ${favoritePanelOpen ? `
+            <div class="field">
+              <label for="favoriteName">즐겨찾기 이름</label>
+              <input id="favoriteName" value="${escapeHtml(favoriteNameDraft)}" oninput="favoriteNameDraft = this.value" placeholder="비워두면 자동 이름으로 저장">
+            </div>
+            <div class="button-row">
+              <button class="secondary-button" type="button" onclick="saveFavorite('full')">현재 확인서 전체 저장</button>
+              <button class="secondary-button" type="button" onclick="saveFavorite('line')">현재 상세줄만 저장</button>
+            </div>
+            ${favorites.length ? `
+              <div class="favorite-grid">
+                ${favorites.map((favorite) => {
+                  const line = favorite.lines[0] || {};
+                  const title = favorite.name || favoriteAutoName(favorite.type, favorite.lines);
+                  return `
+                    <div class="option-card">
+                      <strong>${escapeHtml(title)}</strong>
+                      <span>${favorite.type === "full" ? "전체" : "상세줄"} · ${escapeHtml(favorite.type === "full" ? (favorite.farmerName || "농가명 없음") : `${line.item || "품목 없음"} ${line.grade || ""}`.trim())}</span>
+                      <span>${escapeHtml(favoriteContainerLabel(line))} · 기본 ${number(line.count || 1)}개 · ${favorite.lines.length}줄</span>
+                      <div class="button-row">
+                        <button class="primary-button" type="button" onclick="applySavedFavorite('${favorite.id}')">${favorite.type === "full" ? "전체 불러오기" : "상세줄 추가"}</button>
+                        <button class="danger-button" type="button" onclick="deleteFavorite('${favorite.id}')">삭제</button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            ` : "<div class='empty'>저장된 즐겨찾기가 없습니다. 자주 쓰는 입고 정보나 상세줄을 저장해두면 빠르게 불러올 수 있습니다.</div>"}
+          ` : ""}
         </div>
       `;
-    }
-
-    function applyFavorite(index) {
-      const favorite = favoriteRows()[index];
-      if (!favorite) return;
-      draft.farmerName = favorite.farmerName || "";
-      draft.phone = favorite.phone || "";
-      draft.bankName = favorite.bankName || "";
-      draft.accountNo = favorite.accountNo || "";
-      draft.accountHolder = favorite.accountHolder || favorite.farmerName || "";
-      draft.line = {
-        item: favorite.item,
-        grade: favorite.grade,
-        containerType: favorite.containerType,
-        containerSize: favorite.containerType === "기타" ? (favorite.customKg > 0 ? `${favorite.customKg}kg` : "") : "20kg",
-        customKg: favorite.customKg,
-        count: Number(favorite.count || 1)
-      };
-      draft.autoFillNotice = "즐겨찾기에서 불러왔습니다. 저장 전 수량과 단가를 확인하세요.";
-      renderForm();
     }
 
     function renderForm() {
@@ -1664,7 +1859,7 @@
       document.getElementById("screen-send").innerHTML = `
         <div class="section-head">
           <div>
-            <h1>문자</h1>
+            <h1>문자 전송 대기</h1>
             <p class="muted">입고확인서를 작성하고 문자앱을 열어 전송 상태를 표시합니다.</p>
           </div>
           <button class="primary-button" type="button" onclick="startNew()">새 입고확인서 작성</button>
@@ -1863,6 +2058,16 @@
         { label: "단가미정", value: summary.pendingRows.length }
       ];
       const itemChartRows = itemRows.slice(0, 5).map((row) => ({ label: row.key, value: row.count }));
+      const itemAmountChartRows = itemRows.slice(0, 5).map((row) => ({ label: row.key, value: row.total }));
+      const paymentEligibleRows = rows.filter(isPaymentBaseEligible);
+      const paymentDoneRows = paymentEligibleRows.filter((row) => row.paymentStatus === "송금완료");
+      const paymentWaitingRows = paymentEligibleRows.filter((row) => row.paymentStatus !== "송금완료");
+      const paymentChartRows = [
+        { label: "송금대기", value: paymentWaitingRows.length },
+        { label: "송금완료", value: paymentDoneRows.length },
+        { label: "송금 제외", value: rows.length - paymentEligibleRows.length }
+      ];
+      const farmerAmountChartRows = farmerRows.slice(0, 5).map((row) => ({ label: row.key, value: row.total }));
       document.getElementById("screen-settlement").innerHTML = `
         <div class="section-head">
           <div>
@@ -1910,6 +2115,9 @@
         <div class="status-split">
           ${renderBarChart("문자상태별 확인서", statusChartRows, "건")}
           ${renderBarChart("과일/품목별 수량", itemChartRows, "개")}
+          ${renderBarChart("과일/품목별 정산 반영 금액", itemAmountChartRows, "원")}
+          ${renderBarChart("송금상태 요약", paymentChartRows, "건")}
+          ${renderBarChart("농가별 정산 반영 금액 Top", farmerAmountChartRows, "원")}
         </div>
         ${summary.resendRows.length ? `
           <div class="panel warning-panel">
